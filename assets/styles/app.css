@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CS2 Inventory Application Custom Styles */
+
+@layer base {
+  body {
+    @apply bg-gray-900 text-white font-cs2;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-cs2-orange;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-cs2-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply bg-steam-blue hover:bg-steam-light-blue text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+
+  .btn-discord {
+    @apply bg-discord-blurple hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-gray-800 rounded-lg shadow-steam border border-gray-700 p-6;
+  }
+
+  .item-card {
+    @apply bg-gray-800 rounded-lg shadow-lg border border-gray-600 p-4 hover:shadow-cs2-glow transition-shadow duration-300;
+  }
+
+  .rarity-consumer {
+    @apply border-rarity-consumer text-rarity-consumer;
+  }
+
+  .rarity-industrial {
+    @apply border-rarity-industrial text-rarity-industrial;
+  }
+
+  .rarity-milspec {
+    @apply border-rarity-milspec text-rarity-milspec;
+  }
+
+  .rarity-restricted {
+    @apply border-rarity-restricted text-rarity-restricted;
+  }
+
+  .rarity-classified {
+    @apply border-rarity-classified text-rarity-classified;
+  }
+
+  .rarity-covert {
+    @apply border-rarity-covert text-rarity-covert;
+  }
+
+  .rarity-contraband {
+    @apply border-rarity-contraband text-rarity-contraband;
+  }
+
+  .price-up {
+    @apply text-green-400;
+  }
+
+  .price-down {
+    @apply text-red-400;
+  }
+
+  .price-stable {
+    @apply text-gray-300;
+  }
+
+  .nav-link {
+    @apply text-gray-300 hover:text-cs2-orange transition-colors duration-200 px-3 py-2 rounded-md;
+  }
+
+  .nav-link.active {
+    @apply text-cs2-orange bg-gray-800;
+  }
+
+  .loading-spinner {
+    @apply animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cs2-orange;
+  }
+
+  .alert-success {
+    @apply bg-green-800 border border-green-600 text-green-100 px-4 py-3 rounded-lg;
+  }
+
+  .alert-error {
+    @apply bg-red-800 border border-red-600 text-red-100 px-4 py-3 rounded-lg;
+  }
+
+  .alert-warning {
+    @apply bg-yellow-800 border border-yellow-600 text-yellow-100 px-4 py-3 rounded-lg;
+  }
+
+  .alert-info {
+    @apply bg-blue-800 border border-blue-600 text-blue-100 px-4 py-3 rounded-lg;
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  .gradient-cs2 {
+    background: linear-gradient(135deg, #ff6b00 0%, #ff8533 100%);
+  }
+
+  .gradient-steam {
+    background: linear-gradient(135deg, #1b2838 0%, #2a475e 100%);
+  }
+}

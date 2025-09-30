@@ -1,0 +1,30 @@
+{
+  "name": "cs2inventory",
+  "version": "1.0.0",
+  "description": "CS2 Steam Marketplace Platform - Frontend assets",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tailwindcss -i ./assets/styles/app.css -o ./public/build/app.css --watch",
+    "build": "tailwindcss -i ./assets/styles/app.css -o ./public/build/app.css --minify",
+    "watch": "tailwindcss -i ./assets/styles/app.css -o ./public/build/app.css --watch"
+  },
+  "keywords": [
+    "cs2",
+    "steam",
+    "marketplace",
+    "discord",
+    "bot"
+  ],
+  "author": "CS2 Inventory Team",
+  "license": "proprietary",
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32"
+  },
+  "dependencies": {
+    "alpinejs": "^3.13.3"
+  }
+}

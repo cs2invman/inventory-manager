@@ -1,0 +1,32 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+    app.steam_api_key: '%env(STEAM_API_KEY)%'
+    app.steam_market_base_url: '%env(STEAM_MARKET_BASE_URL)%'
+    app.discord_webhook_url: '%env(DISCORD_WEBHOOK_URL)%'
+    app.discord_bot_token: '%env(DISCORD_BOT_TOKEN)%'
+    app.proxy_service_url: '%env(PROXY_SERVICE_URL)%'
+    app.proxy_auth_token: '%env(PROXY_AUTH_TOKEN)%'
+    app.price_change_threshold: '%env(float:PRICE_CHANGE_THRESHOLD)%'
+    app.min_alert_interval: '%env(int:MIN_ALERT_INTERVAL)%'
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones
