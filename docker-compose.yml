@@ -1,10 +1,11 @@
-version: '3.8'
-
 services:
   php:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        USER_ID: ${USER_ID:-1001}
+        GROUP_ID: ${GROUP_ID:-1001}
     container_name: cs2inventory_php
     working_dir: /var/www/html
     volumes:
@@ -52,11 +53,13 @@ services:
     image: node:18-alpine
     container_name: cs2inventory_node
     working_dir: /var/www/html
+    user: "${USER_ID:-1001}:${GROUP_ID:-1001}"
     volumes:
       - .:/var/www/html
-    command: sh -c "npm install && npm run watch"
     networks:
       - cs2inventory_network
+    profiles:
+      - tools
 
 volumes:
   mysql_data:

@@ -8,6 +8,10 @@
 /vendor/
 ###< symfony/framework-bundle ###
 
+###> composer ###
+/composer.lock
+###< composer ###
+
 ###> phpunit/phpunit ###
 /phpunit.xml
 .phpunit.result.cache

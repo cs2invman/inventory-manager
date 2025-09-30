@@ -43,18 +43,18 @@ CS2 Steam Marketplace Platform - A real-time monitoring system that tracks CS2 i
 ### Docker Development Setup
 ```bash
 # Start all services (PHP, MySQL, web server)
-docker-compose up -d
+docker compose up -d
 
 # Stop all services
-docker-compose down
+docker compose down
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Execute commands in PHP container
-docker-compose exec php composer install
-docker-compose exec php php bin/console doctrine:database:create
-docker-compose exec php php bin/console doctrine:migrations:migrate
+docker compose exec php composer install
+docker compose exec php php bin/console doctrine:database:create
+docker compose exec php php bin/console doctrine:migrations:migrate
 ```
 
 ### Local Development (Alternative)
@@ -72,32 +72,31 @@ php -S localhost:8000 -t public/
 
 ### Frontend Asset Building
 ```bash
-# Install npm dependencies
+# Build Tailwind CSS for development (run locally)
 npm install
-
-# Build Tailwind CSS for development
 npm run dev
 
-# Build Tailwind CSS for production
-npm run build
+# Or using Docker (alternative approach)
+docker compose run --rm node npm install
+docker compose run --rm node npm run build
 
-# Watch for changes during development
+# Watch for changes during development (run locally)
 npm run watch
 ```
 
 ### Console Commands (Docker)
 ```bash
 # Run item discovery
-docker-compose exec php php bin/console app:discover-items
+docker compose exec php php bin/console app:discover-items
 
 # Update all item prices
-docker-compose exec php php bin/console app:update-prices
+docker compose exec php php bin/console app:update-prices
 
 # Send Discord alerts
-docker-compose exec php php bin/console app:send-alerts
+docker compose exec php php bin/console app:send-alerts
 
 # Monitor game updates
-docker-compose exec php php bin/console app:monitor-updates
+docker compose exec php php bin/console app:monitor-updates
 ```
 
 ### Console Commands (Local)
@@ -118,13 +117,13 @@ php bin/console app:monitor-updates
 ### Database Operations (Docker)
 ```bash
 # Generate migration
-docker-compose exec php php bin/console make:migration
+docker compose exec php php bin/console make:migration
 
 # Run migrations
-docker-compose exec php php bin/console doctrine:migrations:migrate
+docker compose exec php php bin/console doctrine:migrations:migrate
 
 # Load fixtures (if available)
-docker-compose exec php php bin/console doctrine:fixtures:load
+docker compose exec php php bin/console doctrine:fixtures:load
 ```
 
 ### Database Operations (Local)
