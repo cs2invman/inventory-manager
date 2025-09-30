@@ -1,0 +1,143 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dashboard - CS2 Inventory{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-900">
+    <!-- Navigation Header -->
+    <nav class="bg-gray-800 shadow-steam">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-cs2-orange">CS2 Inventory</h1>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="{{ path('app_dashboard') }}" class="nav-link active">Dashboard</a>
+                            <a href="#" class="nav-link">Items</a>
+                            <a href="#" class="nav-link">Price Alerts</a>
+                            {% if is_granted('ROLE_ADMIN') %}
+                                <a href="#" class="nav-link">Admin</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-300">
+                        Welcome, <span class="font-semibold text-white">{{ user.fullName }}</span>
+                    </div>
+                    <a href="{{ path('app_logout') }}" class="btn-secondary text-sm">
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <!-- Welcome Section -->
+        <div class="mb-8">
+            <div class="card">
+                <h2 class="text-2xl font-bold text-white mb-4">Dashboard</h2>
+                <p class="text-gray-300 mb-4">
+                    Welcome to the CS2 Steam Marketplace Platform, {{ user.firstName }}!
+                    Monitor CS2 item prices, track your inventory, and get notified about price changes.
+                </p>
+                <div class="flex space-x-4">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-800 text-green-100">
+                        Account Active
+                    </span>
+                    {% if is_granted('ROLE_ADMIN') %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-cs2-orange text-white">
+                            Administrator
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="card">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-cs2-orange rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-400">Tracked Items</p>
+                        <p class="text-2xl font-semibold text-white">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-steam-blue rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5v-5a2 2 0 00-2-2H8a2 2 0 00-2 2v5"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-400">Price Alerts</p>
+                        <p class="text-2xl font-semibold text-white">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-discord-blurple rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-400">Discord Alerts</p>
+                        <p class="text-2xl font-semibold text-white">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-600 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-400">Total Value</p>
+                        <p class="text-2xl font-semibold text-white">$0.00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-white mb-4">Recent Activity</h3>
+            <div class="text-center py-12">
+                <div class="mx-auto h-12 w-12 text-gray-400">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <h3 class="mt-2 text-sm font-medium text-gray-300">No activity yet</h3>
+                <p class="mt-1 text-sm text-gray-500">Start tracking CS2 items to see activity here.</p>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

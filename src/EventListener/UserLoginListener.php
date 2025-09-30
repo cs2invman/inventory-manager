@@ -1,0 +1,26 @@
+<?php
+
+namespace App\EventListener;
+
+use App\Entity\User;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\Security\Http\Event\InteractiveLoginEvent;
+
+#[AsEventListener(event: 'security.interactive_login', method: 'onLogin')]
+class UserLoginListener
+{
+    public function __construct(
+        private EntityManagerInterface $entityManager
+    ) {}
+
+    public function onLogin(InteractiveLoginEvent $event): void
+    {
+        $user = $event->getAuthenticationToken()->getUser();
+
+        if ($user instanceof User) {
+            $user->setLastLoginAt(new \DateTimeImmutable());
+            $this->entityManager->flush();
+        }
+    }
+}
