@@ -57,31 +57,13 @@ docker compose exec php php bin/console doctrine:database:create
 docker compose exec php php bin/console doctrine:migrations:migrate
 ```
 
-### Local Development (Alternative)
+### Frontend Asset Building (Docker)
 ```bash
-# Setup and Installation
-composer install
-php bin/console doctrine:database:create
-php bin/console doctrine:migrations:migrate
-
-# Development Server
-symfony server:start
-# or
-php -S localhost:8000 -t public/
-```
-
-### Frontend Asset Building
-```bash
-# Build Tailwind CSS for development (run locally)
-npm install
-npm run dev
-
-# Or using Docker (alternative approach)
 docker compose run --rm node npm install
 docker compose run --rm node npm run build
 
 # Watch for changes during development (run locally)
-npm run watch
+docker compose run --rm node npm run watch
 ```
 
 ### Console Commands (Docker)
@@ -99,21 +81,6 @@ docker compose exec php php bin/console app:send-alerts
 docker compose exec php php bin/console app:monitor-updates
 ```
 
-### Console Commands (Local)
-```bash
-# Run item discovery
-php bin/console app:discover-items
-
-# Update all item prices
-php bin/console app:update-prices
-
-# Send Discord alerts
-php bin/console app:send-alerts
-
-# Monitor game updates
-php bin/console app:monitor-updates
-```
-
 ### Database Operations (Docker)
 ```bash
 # Generate migration
@@ -124,18 +91,6 @@ docker compose exec php php bin/console doctrine:migrations:migrate
 
 # Load fixtures (if available)
 docker compose exec php php bin/console doctrine:fixtures:load
-```
-
-### Database Operations (Local)
-```bash
-# Generate migration
-php bin/console make:migration
-
-# Run migrations
-php bin/console doctrine:migrations:migrate
-
-# Load fixtures (if available)
-php bin/console doctrine:fixtures:load
 ```
 
 ## Configuration Management

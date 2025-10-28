@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -46,9 +48,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastLoginAt = null;
 
+    /**
+     * @var Collection<int, ItemUser>
+     */
+    #[ORM\OneToMany(targetEntity: ItemUser::class, mappedBy: 'user', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $inventory;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->inventory = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -178,6 +187,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setLastLoginAt(?\DateTimeImmutable $lastLoginAt): static
     {
         $this->lastLoginAt = $lastLoginAt;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, ItemUser>
+     */
+    public function getInventory(): Collection
+    {
+        return $this->inventory;
+    }
+
+    public function addInventoryItem(ItemUser $inventoryItem): static
+    {
+        if (!$this->inventory->contains($inventoryItem)) {
+            $this->inventory->add($inventoryItem);
+            $inventoryItem->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeInventoryItem(ItemUser $inventoryItem): static
+    {
+        if ($this->inventory->removeElement($inventoryItem)) {
+            if ($inventoryItem->getUser() === $this) {
+                $inventoryItem->setUser(null);
+            }
+        }
+
         return $this;
     }
 }
