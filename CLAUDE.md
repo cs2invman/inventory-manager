@@ -12,31 +12,10 @@ CS2 Steam Marketplace Platform - A real-time monitoring system that tracks CS2 i
 - **Frontend**: Tailwind CSS for styling
 - **Database**: MySQL with Doctrine ORM
 - **Queue System**: Symfony Messenger for async processing
-- **Proxy Management**: Rotating proxy service for Steam API rate limiting
-- **Notifications**: Discord webhooks with rich embeds
 - **Containerization**: Docker + Docker Compose for development and deployment
 - **Scheduling**: Cron jobs via Symfony Console commands
 
 ## Core Architecture
-
-### Services Layer
-- **Steam Market Client**: HTTP client with proxy rotation for Steam marketplace API calls
-- **CS2 Item Scraper**: Service for discovering and fetching item metadata and pricing
-- **Discord Notification Service**: Webhook-based messaging with customizable alert thresholds
-- **Price Monitoring Service**: Real-time price change detection and trend analysis
-- **Proxy Rotation Service**: Manages proxy pool to avoid Steam API rate limiting
-
-### Data Layer
-- **CS2 Item Entity**: Stores item metadata (name, type, rarity, image URLs)
-- **Price History Entity**: Time-series data for price tracking and trend analysis
-- **Discord Alert Log**: Notification history and delivery status
-- **Proxy Entity**: Proxy configuration and health status tracking
-
-### Background Processing
-- **Item Discovery Command**: Finds new CS2 items and updates metadata
-- **Price Update Command**: Fetches current market prices for all tracked items
-- **Discord Alert Command**: Processes price changes and sends notifications
-- **Game Update Monitor Command**: Watches for CS2 game updates and announcements
 
 ## Development Commands
 
@@ -96,11 +75,7 @@ docker compose exec php php bin/console doctrine:fixtures:load
 ## Configuration Management
 
 Environment-specific configurations for:
-- Steam API credentials and rate limits
-- Discord webhook URLs and bot tokens
 - MySQL database connection strings
-- Proxy service endpoints and authentication
-- Alert thresholds and monitoring intervals
 - Cron job scheduling parameters
 - Docker container environment variables
 - Tailwind CSS build configuration
@@ -115,37 +90,10 @@ Key environment variables for Docker setup:
 
 ## Key Integration Points
 
-### Steam API Integration
-- Uses Steam Community Market API for price data
-- Implements exponential backoff for rate limiting
-- Proxy rotation to handle IP-based restrictions
-- Handles Steam's HTML scraping when API is insufficient
-
-### Discord Integration
-- Rich embed formatting for price alerts
-- Customizable notification templates
-- Channel-specific routing based on item types or price thresholds
-- Error handling for webhook failures
-
-### Proxy Management
-- Health checking for proxy endpoints
-- Automatic failover and rotation
-- Performance metrics tracking
-- Support for HTTP/HTTPS/SOCKS proxies
-
 ## Cron Job Architecture
-
-Jobs are designed to run independently with proper error handling:
-- Item discovery: Every 6 hours
-- Price updates: Every 15 minutes for tracked items
-- Discord alerts: Every 5 minutes for processed price changes
-- Game update monitoring: Every 30 minutes
-- Proxy health checks: Every 10 minutes
 
 ## Error Handling Strategy
 
-- Comprehensive logging for all Steam API calls and proxy usage
+- Comprehensive logging for all API calls
 - Circuit breaker pattern for failing services
-- Dead letter queue for failed Discord notifications
 - Automatic retry with exponential backoff
-- Health check endpoints for monitoring system status
