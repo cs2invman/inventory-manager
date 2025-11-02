@@ -13,6 +13,11 @@ parameters:
     app.price_change_threshold: '%env(float:PRICE_CHANGE_THRESHOLD)%'
     app.min_alert_interval: '%env(int:MIN_ALERT_INTERVAL)%'
 
+    # SteamWebAPI Configuration
+    steam_web_api.base_url: '%env(STEAM_WEB_API_BASE_URL)%'
+    steam_web_api.key: '%env(STEAM_WEB_API_KEY)%'
+    steam_items.storage_path: '%kernel.project_dir%/%env(STEAM_ITEMS_STORAGE_PATH)%'
+
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -30,3 +35,18 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    # SteamWebAPI Client Service
+    App\Service\SteamWebApiClient:
+        arguments:
+            $baseUrl: '%steam_web_api.base_url%'
+            $apiKey: '%steam_web_api.key%'
+
+    # Steam Commands
+    App\Command\SteamDownloadItemsCommand:
+        arguments:
+            $storageBasePath: '%steam_items.storage_path%'
+
+    App\Command\SteamSyncItemsCommand:
+        arguments:
+            $storageBasePath: '%steam_items.storage_path%'

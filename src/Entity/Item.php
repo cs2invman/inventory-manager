@@ -12,6 +12,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(columns: ['type'], name: 'idx_item_type')]
 #[ORM\Index(columns: ['category'], name: 'idx_item_category')]
 #[ORM\Index(columns: ['rarity'], name: 'idx_item_rarity')]
+#[ORM\Index(columns: ['active'], name: 'idx_item_active')]
+#[ORM\Index(columns: ['external_id'], name: 'idx_item_external_id')]
 #[ORM\HasLifecycleCallbacks]
 class Item
 {
@@ -26,13 +28,13 @@ class Item
     #[ORM\Column(length: 500)]
     private ?string $imageUrl = null;
 
-    #[ORM\Column(length: 100, unique: true)]
+    #[ORM\Column(length: 100)]
     private ?string $steamId = null;
 
     #[ORM\Column(length: 50)]
     private ?string $type = null;
 
-    #[ORM\Column(length: 255, unique: true)]
+    #[ORM\Column(length: 255)]
     private ?string $hashName = null;
 
     #[ORM\Column(length: 100)]
@@ -61,6 +63,72 @@ class Item
 
     #[ORM\Column(length: 500, nullable: true)]
     private ?string $iconUrlLarge = null;
+
+    /**
+     * External ID from SteamWebAPI (maps to API's 'id' field)
+     */
+    #[ORM\Column(length: 50, unique: true, nullable: true)]
+    private ?string $externalId = null;
+
+    /**
+     * Track if item is currently available in the marketplace
+     */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $active = true;
+
+    /**
+     * Market name from API (maps to API's 'marketname' field)
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $marketName = null;
+
+    /**
+     * URL-friendly slug from API
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $slug = null;
+
+    /**
+     * Steam class ID from API
+     */
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $classId = null;
+
+    /**
+     * Steam instance ID from API
+     */
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $instanceId = null;
+
+    /**
+     * Item group identifier from API
+     */
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $groupId = null;
+
+    /**
+     * UI border color hex (no # prefix, maps to API's 'bordercolor')
+     */
+    #[ORM\Column(length: 6, nullable: true)]
+    private ?string $borderColor = null;
+
+    /**
+     * Item rarity/quality color hex (no # prefix, maps to API's 'color')
+     */
+    #[ORM\Column(length: 6, nullable: true)]
+    private ?string $itemColor = null;
+
+    /**
+     * Quality descriptor from API (e.g., "StatTrak™")
+     */
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $quality = null;
+
+    /**
+     * API points/score system from API
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $points = null;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
@@ -330,6 +398,127 @@ class Item
             }
         }
 
+        return $this;
+    }
+
+    public function getExternalId(): ?string
+    {
+        return $this->externalId;
+    }
+
+    public function setExternalId(?string $externalId): static
+    {
+        $this->externalId = $externalId;
+        return $this;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->active;
+    }
+
+    public function setActive(bool $active): static
+    {
+        $this->active = $active;
+        return $this;
+    }
+
+    public function getMarketName(): ?string
+    {
+        return $this->marketName;
+    }
+
+    public function setMarketName(?string $marketName): static
+    {
+        $this->marketName = $marketName;
+        return $this;
+    }
+
+    public function getSlug(): ?string
+    {
+        return $this->slug;
+    }
+
+    public function setSlug(?string $slug): static
+    {
+        $this->slug = $slug;
+        return $this;
+    }
+
+    public function getClassId(): ?string
+    {
+        return $this->classId;
+    }
+
+    public function setClassId(?string $classId): static
+    {
+        $this->classId = $classId;
+        return $this;
+    }
+
+    public function getInstanceId(): ?string
+    {
+        return $this->instanceId;
+    }
+
+    public function setInstanceId(?string $instanceId): static
+    {
+        $this->instanceId = $instanceId;
+        return $this;
+    }
+
+    public function getGroupId(): ?string
+    {
+        return $this->groupId;
+    }
+
+    public function setGroupId(?string $groupId): static
+    {
+        $this->groupId = $groupId;
+        return $this;
+    }
+
+    public function getBorderColor(): ?string
+    {
+        return $this->borderColor;
+    }
+
+    public function setBorderColor(?string $borderColor): static
+    {
+        $this->borderColor = $borderColor;
+        return $this;
+    }
+
+    public function getItemColor(): ?string
+    {
+        return $this->itemColor;
+    }
+
+    public function setItemColor(?string $itemColor): static
+    {
+        $this->itemColor = $itemColor;
+        return $this;
+    }
+
+    public function getQuality(): ?string
+    {
+        return $this->quality;
+    }
+
+    public function setQuality(?string $quality): static
+    {
+        $this->quality = $quality;
+        return $this;
+    }
+
+    public function getPoints(): ?int
+    {
+        return $this->points;
+    }
+
+    public function setPoints(?int $points): static
+    {
+        $this->points = $points;
         return $this;
     }
 }
