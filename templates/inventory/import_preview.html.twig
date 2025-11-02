@@ -1,0 +1,181 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Preview Import - CS2 Inventory{% endblock %}
+
+{% block body %}
+<!-- Main Content -->
+<main class="w-full py-6 px-8">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-white mb-2">Preview Your Import</h2>
+            <p class="text-gray-400">
+                Review the items that will be imported before confirming.
+            </p>
+        </div>
+
+        <!-- Warnings for Unmatched Items -->
+        {% if preview.hasUnmatchedItems %}
+            <div class="card bg-yellow-900 border-yellow-700 mb-6">
+                <h3 class="text-lg font-semibold text-yellow-100 mb-3 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    Warning: Unmatched Items
+                </h3>
+                <p class="text-yellow-200 mb-3">The following {{ preview.unmatchedItems|length }} items could not be matched in the database and will be skipped:</p>
+                <div class="bg-yellow-950 rounded p-4 max-h-48 overflow-y-auto">
+                    <ul class="space-y-2 text-sm text-yellow-100">
+                        {% for item in preview.unmatchedItems %}
+                            <li class="flex items-start">
+                                <svg class="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                                </svg>
+                                <div>
+                                    <div class="font-medium">{{ item.market_hash_name }}</div>
+                                    <div class="text-xs text-yellow-200 mt-0.5">ClassID: {{ item.class_id }}</div>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Summary Statistics -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="card">
+                <div class="text-center">
+                    <p class="text-sm font-medium text-gray-400 mb-2">Total Items to Import</p>
+                    <p class="text-4xl font-bold text-cs2-orange">{{ preview.totalItems }}</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="text-center">
+                    <p class="text-sm font-medium text-gray-400 mb-2">Items to Add</p>
+                    <p class="text-4xl font-bold text-green-400">{{ preview.itemsToAdd }}</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="text-center">
+                    <p class="text-sm font-medium text-gray-400 mb-2">Existing Items to Remove</p>
+                    <p class="text-4xl font-bold text-red-400">{{ preview.itemsToRemove }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- By Rarity -->
+            <div class="card">
+                <h3 class="text-xl font-semibold text-white mb-4">Items by Rarity</h3>
+                {% if preview.statsByRarity is empty %}
+                    <p class="text-gray-400 text-center py-8">No rarity data available</p>
+                {% else %}
+                    <div class="space-y-3">
+                        {% for rarity, count in preview.statsByRarity %}
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-300">{{ rarity }}</span>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-32 bg-gray-700 rounded-full h-2">
+                                        <div class="bg-cs2-orange h-2 rounded-full" style="width: {{ (count / preview.totalItems * 100)|round }}%"></div>
+                                    </div>
+                                    <span class="text-white font-semibold w-12 text-right">{{ count }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- By Type -->
+            <div class="card">
+                <h3 class="text-xl font-semibold text-white mb-4">Items by Type</h3>
+                {% if preview.statsByType is empty %}
+                    <p class="text-gray-400 text-center py-8">No type data available</p>
+                {% else %}
+                    <div class="space-y-3">
+                        {% for type, count in preview.statsByType %}
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-300">{{ type }}</span>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-32 bg-gray-700 rounded-full h-2">
+                                        <div class="bg-steam-blue h-2 rounded-full" style="width: {{ (count / preview.totalItems * 100)|round }}%"></div>
+                                    </div>
+                                    <span class="text-white font-semibold w-12 text-right">{{ count }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Notable Items -->
+        {% if preview.notableItems is not empty %}
+            <div class="card mb-8">
+                <h3 class="text-xl font-semibold text-white mb-4">Notable Items (Knives, Gloves, High Rarity)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for item in preview.notableItems|slice(0, 12) %}
+                        <div class="bg-gray-900 rounded-lg p-4 flex items-center space-x-3 border border-gray-700 hover:border-cs2-orange transition-colors">
+                            <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-16 h-16 object-contain">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-white font-medium text-sm truncate">{{ item.name }}</p>
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">{{ item.type }}</span>
+                                    <span class="text-xs bg-cs2-orange text-white px-2 py-1 rounded">{{ item.rarity }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if preview.notableItems|length > 12 %}
+                    <p class="text-gray-400 text-sm mt-4 text-center">
+                        And {{ preview.notableItems|length - 12 }} more notable items...
+                    </p>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <!-- Action Buttons -->
+        <div class="card bg-red-900 border-red-700 mb-6">
+            <div class="flex items-start mb-4">
+                <svg class="w-6 h-6 text-red-300 mr-3 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <div>
+                    <h3 class="text-lg font-semibold text-red-100 mb-2">Warning: This Will Replace Your Inventory</h3>
+                    <p class="text-red-200 text-sm">
+                        Confirming this import will <strong>delete all {{ preview.itemsToRemove }} existing items</strong> from your inventory
+                        and replace them with the {{ preview.totalItems }} items shown above. This action cannot be undone.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex justify-center space-x-4 mt-6">
+                <form action="{{ path('inventory_import_cancel') }}" method="post">
+                    <button type="submit" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200">
+                        Cancel Import
+                    </button>
+                </form>
+
+                <form action="{{ path('inventory_import_confirm') }}" method="post" x-data="{ confirming: false }" @submit="confirming = true">
+                    <input type="hidden" name="session_key" value="{{ preview.sessionKey }}">
+                    <button
+                        type="submit"
+                        :disabled="confirming"
+                        class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                        <span x-show="!confirming">Confirm Import</span>
+                        <span x-show="confirming" class="flex items-center space-x-2">
+                            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Importing...</span>
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+</main>
+{% endblock %}

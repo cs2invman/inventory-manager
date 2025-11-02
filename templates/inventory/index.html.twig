@@ -1,0 +1,149 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}My Inventory - CS2 Inventory{% endblock %}
+
+{% block body %}
+    <!-- Main Content -->
+    <main class="w-full py-6 px-8">
+        <!-- Page Header with Total Value -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-white mb-2">My Inventory</h2>
+                    <p class="text-gray-400">{{ itemCount }} items in your collection</p>
+                </div>
+                <div class="text-right">
+                    <div class="flex items-center justify-end space-x-4 mb-2">
+                        <p class="text-sm text-gray-400">Total Inventory Value</p>
+                        <a href="{{ path('inventory_import_form') }}" class="text-xs text-cs2-orange hover:text-orange-400 transition-colors flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                            </svg>
+                            Import New
+                        </a>
+                    </div>
+                    <p class="text-4xl font-bold text-cs2-orange">${{ totalValue|number_format(2, '.', ',') }}</p>
+                </div>
+            </div>
+        </div>
+
+        {% if itemsWithPrices is empty %}
+            <!-- Empty State -->
+            <div class="card text-center py-12">
+                <svg class="mx-auto h-16 w-16 text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                </svg>
+                <h3 class="text-xl font-semibold text-white mb-2">No Items Yet</h3>
+                <p class="text-gray-400 mb-6">Your inventory is empty. Import your CS2 items to get started.</p>
+                <a href="{{ path('inventory_import_form') }}" class="btn-primary inline-flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    Import Inventory
+                </a>
+            </div>
+        {% else %}
+            <!-- Items Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {% for itemData in itemsWithPrices %}
+                    {% set itemUser = itemData.itemUser %}
+                    {% set item = itemUser.item %}
+                    {% set latestPrice = itemData.latestPrice %}
+                    {% set priceValue = itemData.priceValue %}
+
+                    <div class="card hover:border-cs2-orange transition-colors duration-200 group">
+                        <!-- Item Name -->
+                        <h3 class="font-semibold text-white text-sm line-clamp-2 group-hover:text-cs2-orange transition-colors mb-3">
+                            {{ item.name }}
+                        </h3>
+
+                        <!-- Item Image -->
+                        <div class="relative bg-gray-900 rounded-lg p-4 mb-3 flex items-center justify-center h-48">
+                            <img
+                                src="{{ item.imageUrl }}"
+                                alt="{{ item.name }}"
+                                class="max-h-full max-w-full object-contain"
+                            >
+                            <!-- Steam Market Link -->
+                            <a
+                                href="https://steamcommunity.com/market/listings/730/{{ item.hashName|url_encode }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="absolute top-2 right-2 bg-gray-800 hover:bg-steam-blue p-1.5 rounded transition-colors"
+                                title="View on Steam Market"
+                            >
+                                <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z" />
+                                </svg>
+
+                            </a>
+                            {% if itemUser.isStattrak %}
+                                <span class="absolute top-2 left-2 bg-cs2-orange text-white text-xs font-bold px-2 py-1 rounded">
+                                    ST
+                                </span>
+                            {% endif %}
+                            {% if itemUser.isSouvenir %}
+                                <span class="absolute top-2 left-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded">
+                                    SV
+                                </span>
+                            {% endif %}
+
+                            <!-- Stickers Overlay -->
+                            {% if itemUser.stickers %}
+                                <div class="absolute bottom-2 left-2 flex gap-1">
+                                    {% for sticker in itemUser.stickers %}
+                                        <img
+                                            src="{{ sticker.image_url }}"
+                                            alt="{{ sticker.name }}"
+                                            title="{{ sticker.name }}"
+                                            class="h-10 w-12 rounded bg-gray-800/80 p-0.5"
+                                        >
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Item Details -->
+                        <div class="space-y-2">
+
+                            <!-- Wear/Float and Price Row -->
+                            <div class="flex items-center justify-between text-xs">
+                                <!-- Left: Wear and Float -->
+                                <div class="flex items-center gap-2">
+                                    {% if itemUser.wearCategory %}
+                                        <span class="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">
+                                            {{ itemUser.wearCategory }}
+                                        </span>
+                                    {% endif %}
+                                    {% if itemUser.floatValue %}
+                                        <span class="text-gray-300 font-mono ml-2">{{ itemUser.floatValue }}</span>
+                                    {% endif %}
+                                    {% if itemUser.patternIndex %}
+                                        <span class="text-gray-300 font-mono ml-2">[{{ itemUser.patternIndex }}]</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Right: Price -->
+                                <span class="text-green-400 font-bold text-lg">
+                                    {% if latestPrice %}
+                                        ${{ priceValue|number_format(2, '.', ',') }}
+                                    {% else %}
+                                        <span class="text-gray-500">N/A</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+
+                            <!-- Name Tag -->
+                            {% if itemUser.nameTag %}
+                                <div class="pt-2 border-t border-gray-700">
+                                    <p class="text-xs text-gray-400">Name Tag:</p>
+                                    <p class="text-xs text-yellow-400 italic">"{{ itemUser.nameTag }}"</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </main>
+{% endblock %}

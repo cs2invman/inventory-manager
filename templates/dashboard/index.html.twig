@@ -3,40 +3,8 @@
 {% block title %}Dashboard - CS2 Inventory{% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-gray-900">
-    <!-- Navigation Header -->
-    <nav class="bg-gray-800 shadow-steam">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <h1 class="text-xl font-bold text-cs2-orange">CS2 Inventory</h1>
-                    </div>
-                    <div class="hidden md:block">
-                        <div class="ml-10 flex items-baseline space-x-4">
-                            <a href="{{ path('app_dashboard') }}" class="nav-link active">Dashboard</a>
-                            <a href="#" class="nav-link">Items</a>
-                            <a href="#" class="nav-link">Price Alerts</a>
-                            {% if is_granted('ROLE_ADMIN') %}
-                                <a href="#" class="nav-link">Admin</a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm text-gray-300">
-                        Welcome, <span class="font-semibold text-white">{{ user.fullName }}</span>
-                    </div>
-                    <a href="{{ path('app_logout') }}" class="btn-secondary text-sm">
-                        Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+<!-- Main Content -->
+<main class="w-full py-6 px-8">
         <!-- Welcome Section -->
         <div class="mb-8">
             <div class="card">
@@ -138,6 +106,5 @@
                 <p class="mt-1 text-sm text-gray-500">Start tracking CS2 items to see activity here.</p>
             </div>
         </div>
-    </main>
-</div>
+</main>
 {% endblock %}

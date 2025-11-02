@@ -239,4 +239,16 @@ class ItemRepository extends ServiceEntityRepository
 
         return $counts;
     }
+
+    /**
+     * Find an item by its Steam class ID
+     */
+    public function findByClassId(string $classId): ?Item
+    {
+        return $this->createQueryBuilder('i')
+            ->where('i.classId = :classId')
+            ->setParameter('classId', $classId)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

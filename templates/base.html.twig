@@ -18,6 +18,36 @@
         {% endblock %}
     </head>
     <body class="h-full bg-gray-900 text-white">
-        {% block body %}{% endblock %}
+        <div class="min-h-screen bg-gray-900">
+            {% if app.user %}
+                <!-- Navigation Header -->
+                <nav class="bg-gray-800 shadow-steam">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex justify-between items-center h-16">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <a href="{{ path('app_dashboard') }}" class="text-xl font-bold text-cs2-orange hover:text-orange-400 transition-colors">
+                                        CS2 Inventory
+                                    </a>
+                                </div>
+                                <div class="hidden md:block">
+                                    <div class="ml-10 flex items-baseline space-x-4">
+                                        <a href="{{ path('inventory_index') }}" class="nav-link {% if app.request.get('_route') starts with 'inventory' %}active{% endif %}">Inventory</a>
+                                        <a href="#" class="nav-link">Items</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <a href="{{ path('app_logout') }}" class="btn-secondary text-sm">
+                                    Logout
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            {% endif %}
+
+            {% block body %}{% endblock %}
+        </div>
     </body>
 </html>

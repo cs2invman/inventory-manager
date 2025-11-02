@@ -1,0 +1,206 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Import Inventory - CS2 Inventory{% endblock %}
+
+{% block body %}
+<!-- Main Content -->
+<main class="w-full py-6 px-8">
+        <!-- Flash Messages -->
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert-{{ label }} mb-4">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endfor %}
+
+        <!-- Page Header -->
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-white mb-2">Import CS2 Inventory</h2>
+            <p class="text-gray-400">
+                Paste your Steam inventory JSON data below to import your CS2 items.
+            </p>
+        </div>
+
+        <!-- Instructions Card -->
+        <div class="card mb-8">
+            <h3 class="text-xl font-semibold text-white mb-4">How to Import Your Inventory</h3>
+            <div class="space-y-4 text-gray-300">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">1</span>
+                    </div>
+                    <div class="ml-4">
+                        <p class="font-semibold text-white">Get Your Steam ID</p>
+                        <p class="text-sm text-gray-400">Find your Steam ID (e.g., 76561198XXXXXXXXX) from your profile</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">2</span>
+                    </div>
+                    <div class="ml-4">
+                        <p class="font-semibold text-white">Fetch Inventory Data</p>
+                        <p class="text-sm text-gray-400 mb-2">Visit these URLs in your browser (replace STEAMID with your actual Steam ID):</p>
+                        <div class="bg-gray-900 rounded p-3 font-mono text-xs break-all">
+                            <p class="mb-2"><span class="text-cs2-orange">Tradeable items:</span><br>
+                            https://steamcommunity.com/inventory/STEAMID/730/2</p>
+                            <p><span class="text-cs2-orange">Trade-locked items:</span><br>
+                            https://steamcommunity.com/inventory/STEAMID/730/16</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">3</span>
+                    </div>
+                    <div class="ml-4">
+                        <p class="font-semibold text-white">Copy JSON Data</p>
+                        <p class="text-sm text-gray-400">Copy the entire JSON response from each URL and paste it in the corresponding textareas below</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Form -->
+        <form
+            action="{{ path('inventory_import_preview') }}"
+            method="post"
+            x-data="{
+                tradeableJson: '',
+                tradeLockedJson: '',
+                isValidTradeable: true,
+                isValidTradeLocked: true,
+                tradeableTouched: false,
+                tradeLockedTouched: false,
+                isSubmitting: false,
+                validateJson(text) {
+                    if (!text || text.trim() === '') return true;
+                    try {
+                        JSON.parse(text);
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                },
+                validateTradeable() {
+                    this.isValidTradeable = this.validateJson(this.tradeableJson);
+                },
+                validateTradeLocked() {
+                    this.isValidTradeLocked = this.validateJson(this.tradeLockedJson);
+                },
+                get canSubmit() {
+                    const hasTradeableData = this.tradeableJson && this.tradeableJson.trim() !== '';
+                    const hasTradeLockedData = this.tradeLockedJson && this.tradeLockedJson.trim() !== '';
+                    const hasAnyData = hasTradeableData || hasTradeLockedData;
+
+                    const tradeableValid = !hasTradeableData || this.isValidTradeable;
+                    const tradeLockedValid = !hasTradeLockedData || this.isValidTradeLocked;
+
+                    return hasAnyData && tradeableValid && tradeLockedValid && !this.isSubmitting;
+                },
+                handleSubmit() {
+                    this.isSubmitting = true;
+                }
+            }"
+            @submit="handleSubmit"
+        >
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Tradeable Items -->
+                <div class="card">
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="block text-lg font-medium text-white">
+                            Tradeable Items <span class="text-gray-500 text-sm">(contextid=2)</span>
+                        </label>
+                        <span
+                            x-show="tradeableJson.trim() !== ''"
+                            :class="isValidTradeable ? 'text-green-400' : 'text-red-400'"
+                            class="text-2xl"
+                        >
+                            <span x-show="isValidTradeable">✓</span>
+                            <span x-show="!isValidTradeable">✗</span>
+                        </span>
+                    </div>
+                    <textarea
+                        name="tradeable_json"
+                        x-model="tradeableJson"
+                        @blur="tradeableTouched = true; validateTradeable()"
+                        @input="if (tradeableTouched) validateTradeable()"
+                        class="w-full h-96 p-4 bg-gray-900 border rounded-lg font-mono text-xs text-gray-300 focus:outline-none focus:ring-2 resize-none"
+                        :class="tradeableTouched && tradeableJson.trim() !== '' && !isValidTradeable ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-cs2-orange'"
+                        placeholder='Paste tradeable inventory JSON here...&#10;&#10;Example:&#10;{&#10;  "assets": [...],&#10;  "descriptions": [...],&#10;  "asset_properties": [...]&#10;}'
+                    ></textarea>
+                    <p
+                        x-show="tradeableTouched && tradeableJson.trim() !== '' && !isValidTradeable"
+                        class="mt-2 text-sm text-red-400"
+                    >
+                        Invalid JSON format
+                    </p>
+                </div>
+
+                <!-- Trade-Locked Items -->
+                <div class="card">
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="block text-lg font-medium text-white">
+                            Trade-Locked Items <span class="text-gray-500 text-sm">(contextid=16)</span>
+                        </label>
+                        <span
+                            x-show="tradeLockedJson.trim() !== ''"
+                            :class="isValidTradeLocked ? 'text-green-400' : 'text-red-400'"
+                            class="text-2xl"
+                        >
+                            <span x-show="isValidTradeLocked">✓</span>
+                            <span x-show="!isValidTradeLocked">✗</span>
+                        </span>
+                    </div>
+                    <textarea
+                        name="trade_locked_json"
+                        x-model="tradeLockedJson"
+                        @blur="tradeLockedTouched = true; validateTradeLocked()"
+                        @input="if (tradeLockedTouched) validateTradeLocked()"
+                        class="w-full h-96 p-4 bg-gray-900 border rounded-lg font-mono text-xs text-gray-300 focus:outline-none focus:ring-2 resize-none"
+                        :class="tradeLockedTouched && tradeLockedJson.trim() !== '' && !isValidTradeLocked ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-cs2-orange'"
+                        placeholder='Paste trade-locked inventory JSON here...&#10;&#10;Example:&#10;{&#10;  "assets": [...],&#10;  "descriptions": [...],&#10;  "asset_properties": [...]&#10;}'
+                    ></textarea>
+                    <p
+                        x-show="tradeLockedTouched && tradeLockedJson.trim() !== '' && !isValidTradeLocked"
+                        class="mt-2 text-sm text-red-400"
+                    >
+                        Invalid JSON format
+                    </p>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="flex justify-center">
+                <button
+                    type="submit"
+                    :disabled="!canSubmit"
+                    class="btn-primary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                    <span x-show="!isSubmitting">Preview Import</span>
+                    <span x-show="isSubmitting" class="flex items-center space-x-2">
+                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Processing...</span>
+                    </span>
+                </button>
+            </div>
+        </form>
+
+        <!-- Important Notes -->
+        <div class="card mt-8 bg-yellow-900 border-yellow-700">
+            <h3 class="text-lg font-semibold text-yellow-100 mb-3">Important Notes</h3>
+            <ul class="list-disc list-inside space-y-2 text-yellow-200 text-sm">
+                <li>This import will <strong>replace all</strong> existing items in your inventory</li>
+                <li>Make sure you're logged into the correct Steam account when fetching the data</li>
+                <li>The inventory data must be from Steam's official API</li>
+                <li>Trade-lock status is not tracked - both tradeable and trade-locked items are imported equally</li>
+                <li>Float values and sticker information will be automatically extracted</li>
+                <li><strong>Automatically skipped:</strong> Storage Units, Medals, Coins, Graffiti, Music Kits, and Badges (non-tradeable collectibles)</li>
+            </ul>
+        </div>
+</main>
+{% endblock %}
