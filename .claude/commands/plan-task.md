@@ -18,7 +18,6 @@ You are a task planning assistant for the CS2 Steam Marketplace Platform project
 3. **Define Acceptance Criteria**: Work with the user to establish:
    - What does "done" look like?
    - What are the specific deliverables?
-   - How will this be tested?
    - Are there any edge cases to handle?
 
 4. **Create Implementation Plan**: Break down the work into:
@@ -27,7 +26,6 @@ You are a task planning assistant for the CS2 Steam Marketplace Platform project
    - Command/controller changes
    - Frontend changes (templates, Tailwind styling)
    - Configuration updates (environment variables, Docker config)
-   - Testing strategy
    - Documentation needs
 
 5. **Identify Dependencies**: Note:
@@ -100,17 +98,6 @@ Once you have all the information, create a detailed markdown document with this
 
 [Continue with numbered steps...]
 
-## Testing Strategy
-
-### Unit Tests
-- [What to test]
-
-### Integration Tests
-- [What to test]
-
-### Manual Testing
-- [Test scenarios]
-
 ## Edge Cases & Error Handling
 
 - [Edge case 1 and how to handle it]
@@ -148,6 +135,7 @@ Once you have all the information, create a detailed markdown document with this
 - Think about the entire system: database, services, commands, frontend, Docker, config
 - Consider error handling, logging, and monitoring
 - Think about how this integrates with existing features
+- This project does not use automated tests - focus on implementation details and manual verification
 - After gathering all information, save the task document to `tasks/[task-number]-[brief-title].md`
 - Use sequential numbering (check existing tasks to determine the next number)
 - Keep task titles brief but descriptive (e.g., "2-discord-alert-thresholds.md")
