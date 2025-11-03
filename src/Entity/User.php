@@ -54,6 +54,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: ItemUser::class, mappedBy: 'user', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $inventory;
 
+    /**
+     * User configuration (one-to-one relationship).
+     */
+    #[ORM\OneToOne(mappedBy: 'user', targetEntity: UserConfig::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private ?UserConfig $config = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -216,6 +222,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             }
         }
 
+        return $this;
+    }
+
+    public function getConfig(): ?UserConfig
+    {
+        return $this->config;
+    }
+
+    public function setConfig(UserConfig $config): static
+    {
+        // Set the owning side of the relationship if necessary
+        if ($config->getUser() !== $this) {
+            $config->setUser($this);
+        }
+
+        $this->config = $config;
         return $this;
     }
 }

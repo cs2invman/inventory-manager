@@ -1,0 +1,96 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Settings - CS2 Inventory{% endblock %}
+
+{% block body %}
+<!-- Main Content -->
+<main class="w-full py-6 px-8">
+    <!-- Flash Messages -->
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert-{{ label }} mb-4">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-white mb-2">User Settings</h2>
+        <p class="text-gray-400">
+            Configure your account settings and preferences.
+        </p>
+    </div>
+
+    <!-- Settings Form -->
+    <div class="max-w-2xl">
+        <!-- Steam ID Configuration Card -->
+        <div class="card mb-6">
+            <h3 class="text-xl font-semibold text-white mb-4">Steam Configuration</h3>
+
+            {% if currentSteamId %}
+                <div class="mb-6 p-4 bg-green-900/30 border border-green-700 rounded-lg">
+                    <div class="flex items-center">
+                        <svg class="h-5 w-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div>
+                            <p class="text-green-300 font-semibold">Steam ID configured</p>
+                            <p class="text-green-400 font-mono text-sm">{{ currentSteamId }}</p>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="mb-6 p-4 bg-yellow-900/30 border border-yellow-700 rounded-lg">
+                    <div class="flex items-center">
+                        <svg class="h-5 w-5 text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        <p class="text-yellow-300">Steam ID not configured. Please add your Steam ID to enable inventory imports.</p>
+                    </div>
+                </div>
+            {% endif %}
+
+            {{ form_start(form) }}
+                <div class="mb-6">
+                    {{ form_row(form.steamId) }}
+
+                    <!-- Help Text with Instructions -->
+                    <div class="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+                        <h4 class="text-sm font-semibold text-white mb-2">How to find your Steam ID:</h4>
+                        <ol class="list-decimal list-inside space-y-2 text-sm text-gray-300">
+                            <li>Visit <a href="https://steamid.io/" target="_blank" class="text-cs2-orange hover:underline">steamid.io</a> or <a href="https://www.steamidfinder.com/" target="_blank" class="text-cs2-orange hover:underline">steamidfinder.com</a></li>
+                            <li>Enter your Steam profile URL or username</li>
+                            <li>Copy your <strong>SteamID64</strong> (17 digits starting with "7656")</li>
+                            <li>Paste it in the field above</li>
+                        </ol>
+
+                        <div class="mt-3 pt-3 border-t border-gray-700">
+                            <p class="text-xs text-gray-400">
+                                <strong>Example:</strong> <span class="font-mono text-gray-300">76561198012345678</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <a href="{{ path('app_dashboard') }}" class="btn-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn-primary">
+                        Save Settings
+                    </button>
+                </div>
+            {{ form_end(form) }}
+        </div>
+
+        <!-- Additional Settings Placeholder -->
+        <div class="card bg-gray-800/50 border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-400 mb-2">More Settings Coming Soon</h3>
+            <p class="text-sm text-gray-500">
+                Additional configuration options will be available in future updates (notifications, display preferences, etc.).
+            </p>
+        </div>
+    </div>
+</main>
+{% endblock %}

@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Service\InventoryImportService;
+use App\Service\UserConfigService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,14 +15,32 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class InventoryImportController extends AbstractController
 {
     public function __construct(
-        private InventoryImportService $importService
+        private readonly InventoryImportService $importService,
+        private readonly UserConfigService $userConfigService
     ) {
     }
 
     #[Route('', name: 'inventory_import_form', methods: ['GET'])]
     public function importForm(): Response
     {
-        return $this->render('inventory/import.html.twig');
+        $user = $this->getUser();
+
+        // Check if user has configured their Steam ID
+        if (!$this->userConfigService->hasSteamId($user)) {
+            $this->addFlash('warning', 'Please configure your Steam ID before importing your inventory.');
+            return $this->redirectToRoute('app_settings_index', [
+                'redirect' => 'inventory_import_form'
+            ]);
+        }
+
+        // Get Steam inventory URLs
+        $inventoryUrls = $this->userConfigService->getInventoryUrls($user);
+        $steamId = $this->userConfigService->getSteamId($user);
+
+        return $this->render('inventory/import.html.twig', [
+            'inventoryUrls' => $inventoryUrls,
+            'steamId' => $steamId,
+        ]);
     }
 
     #[Route('/preview', name: 'inventory_import_preview', methods: ['POST'])]

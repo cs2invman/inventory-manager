@@ -22,6 +22,17 @@
             </p>
         </div>
 
+        <!-- Steam ID Display -->
+        <div class="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700 flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-400">Your Steam ID:</p>
+                <p class="text-lg font-mono text-cs2-orange">{{ steamId }}</p>
+            </div>
+            <a href="{{ path('app_settings_index') }}" class="btn-secondary text-sm">
+                Change Steam ID
+            </a>
+        </div>
+
         <!-- Instructions Card -->
         <div class="card mb-8">
             <h3 class="text-xl font-semibold text-white mb-4">How to Import Your Inventory</h3>
@@ -31,28 +42,27 @@
                         <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">1</span>
                     </div>
                     <div class="ml-4">
-                        <p class="font-semibold text-white">Get Your Steam ID</p>
-                        <p class="text-sm text-gray-400">Find your Steam ID (e.g., 76561198XXXXXXXXX) from your profile</p>
-                    </div>
-                </div>
-                <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                        <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">2</span>
-                    </div>
-                    <div class="ml-4">
                         <p class="font-semibold text-white">Fetch Inventory Data</p>
-                        <p class="text-sm text-gray-400 mb-2">Visit these URLs in your browser (replace STEAMID with your actual Steam ID):</p>
-                        <div class="bg-gray-900 rounded p-3 font-mono text-xs break-all">
-                            <p class="mb-2"><span class="text-cs2-orange">Tradeable items:</span><br>
-                            https://steamcommunity.com/inventory/STEAMID/730/2</p>
-                            <p><span class="text-cs2-orange">Trade-locked items:</span><br>
-                            https://steamcommunity.com/inventory/STEAMID/730/16</p>
+                        <p class="text-sm text-gray-400 mb-2">Click these links to open your Steam inventory in new tabs:</p>
+                        <div class="bg-gray-900 rounded p-3 font-mono text-xs break-all space-y-2">
+                            <p>
+                                <span class="text-cs2-orange">Tradeable items:</span><br>
+                                <a href="{{ inventoryUrls.tradeable }}" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline">
+                                    {{ inventoryUrls.tradeable }}
+                                </a>
+                            </p>
+                            <p>
+                                <span class="text-cs2-orange">Trade-locked items:</span><br>
+                                <a href="{{ inventoryUrls.tradeLocked }}" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline">
+                                    {{ inventoryUrls.tradeLocked }}
+                                </a>
+                            </p>
                         </div>
                     </div>
                 </div>
                 <div class="flex items-start">
                     <div class="flex-shrink-0">
-                        <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">3</span>
+                        <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">2</span>
                     </div>
                     <div class="ml-4">
                         <p class="font-semibold text-white">Copy JSON Data</p>
