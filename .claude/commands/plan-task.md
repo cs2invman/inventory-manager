@@ -143,10 +143,16 @@ Once you have all the information, create a detailed markdown document with this
 ## Saving the Task
 
 Once the plan is complete:
-1. Check the tasks/ folder to determine the next task number
+1. Check BOTH `tasks/` and `tasks/completed/` folders to determine the next task number
+   - Find all `.md` files with numeric prefixes in both folders
+   - Extract numbers less than 999 (999 is reserved for backlog ideas)
+   - Use the highest number + 1 as the next task number
+   - Example: If highest is 6 in tasks/ and 5 in completed/, next is 7
 2. Create a filename: `[number]-[brief-slug].md`
 3. Save the detailed plan to `tasks/[filename]`
 4. Confirm with the user that the task plan is complete
 5. Remind them that when the task is done, they can move it to `tasks/completed/`
+
+**Important**: Task numbers 1-998 are for active/completed tasks. Number 999 is reserved for backlog ideas that may be implemented later.
 
 Remember: The goal is to create a plan so detailed that anyone (including you, Claude) could pick it up and implement it without needing to ask many questions.
