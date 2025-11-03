@@ -55,6 +55,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private Collection $inventory;
 
     /**
+     * @var Collection<int, StorageBox>
+     */
+    #[ORM\OneToMany(targetEntity: StorageBox::class, mappedBy: 'user', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $storageBoxes;
+
+    /**
      * User configuration (one-to-one relationship).
      */
     #[ORM\OneToOne(mappedBy: 'user', targetEntity: UserConfig::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
@@ -64,6 +70,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->inventory = new ArrayCollection();
+        $this->storageBoxes = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -219,6 +226,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         if ($this->inventory->removeElement($inventoryItem)) {
             if ($inventoryItem->getUser() === $this) {
                 $inventoryItem->setUser(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, StorageBox>
+     */
+    public function getStorageBoxes(): Collection
+    {
+        return $this->storageBoxes;
+    }
+
+    public function addStorageBox(StorageBox $storageBox): static
+    {
+        if (!$this->storageBoxes->contains($storageBox)) {
+            $this->storageBoxes->add($storageBox);
+            $storageBox->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeStorageBox(StorageBox $storageBox): static
+    {
+        if ($this->storageBoxes->removeElement($storageBox)) {
+            if ($storageBox->getUser() === $this) {
+                $storageBox->setUser(null);
             }
         }
 

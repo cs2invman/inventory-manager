@@ -10,6 +10,12 @@
 
 Integrate storage box parsing into the inventory import system so that storage boxes are automatically created/updated when users import their inventory.
 
+**Important Behaviors:**
+- **Storage Box Types**: Supports both Steam-imported storage boxes (with assetId) and manually created storage boxes (without assetId). Manual boxes are used for tracking items lent to friends.
+- **Storage Box Syncing**: Only Steam storage boxes (with assetId) are updated during import. Manual boxes are never modified.
+- **Item Preservation**: **Items in ANY storage container (Steam or manual) are NEVER deleted during import**. Only items in the main inventory (storageBox = null) are replaced during import.
+- **Rationale**: Items in storage represent either Steam-stored items or items lent to friends. These should remain organized and preserved across imports.
+
 ## Prerequisites
 
 - Task 2-1 (Storage Box Database Setup) must be completed
@@ -20,6 +26,34 @@ Integrate storage box parsing into the inventory import system so that storage b
 2. Update InventoryImportService to detect and extract storage boxes from JSON
 3. Sync storage boxes during import
 4. Display storage box information in import preview
+
+## Import Workflow
+
+When a user imports their inventory:
+
+1. **Storage Boxes are Synced First**
+   - Parse storage boxes from JSON
+   - Create new Steam storage boxes (with assetId)
+   - Update existing Steam storage boxes (matched by assetId)
+   - Manual storage boxes (assetId = null) are never modified
+
+2. **Main Inventory is Replaced**
+   - Delete ONLY items where `storageBox IS NULL`
+   - Items in ANY storage box are preserved
+   - Import new items from JSON into main inventory (storageBox = null)
+
+3. **Storage Box Item Handling**
+   - Items inside Steam storage boxes in the JSON are NOT imported as individual items
+   - Storage boxes track their item count, but don't store actual item references
+   - This is by design: storage boxes in Steam contain "stored" items not in active inventory
+   - Manual storage boxes allow you to track items you've lent to friends
+
+4. **Result**
+   - Main inventory reflects current Steam active inventory
+   - Items in storage boxes remain organized:
+     - Steam storage box metadata (name, count) is synced
+     - Manual storage box items (lent to friends) stay in friend boxes
+   - Organization and lending tracking is preserved
 
 ## Implementation Steps
 
@@ -147,6 +181,11 @@ class StorageBoxService
 
     /**
      * Sync storage boxes for a user (create new, update existing)
+     *
+     * IMPORTANT BEHAVIORS:
+     * - Only syncs Steam-imported boxes (with assetId). Manual boxes are never touched.
+     * - Items in storage boxes are NEVER deleted by the import process.
+     * - Import only replaces items in main inventory (storageBox = null).
      */
     public function syncStorageBoxes(User $user, array $storageBoxesData): void
     {
@@ -156,21 +195,21 @@ class StorageBoxService
                 continue;
             }
 
-            // Find existing or create new
+            // Find existing Steam box or create new
             $storageBox = $this->storageBoxRepository->findByAssetId($user, $data['asset_id']);
 
             if ($storageBox === null) {
                 $storageBox = new StorageBox();
                 $storageBox->setUser($user);
                 $storageBox->setAssetId($data['asset_id']);
-                $this->logger->info('Creating new storage box', [
+                $this->logger->info('Creating new Steam storage box', [
                     'user_id' => $user->getId(),
                     'asset_id' => $data['asset_id'],
                     'name' => $data['name']
                 ]);
             }
 
-            // Update fields
+            // Update fields (only for Steam boxes - manual boxes are never touched)
             $storageBox->setName($data['name']);
             $storageBox->setItemCount($data['item_count']);
             if ($data['modification_date'] !== null) {
@@ -181,6 +220,29 @@ class StorageBoxService
         }
 
         $this->entityManager->flush();
+    }
+
+    /**
+     * Create a manual storage box (for tracking items lent to friends)
+     * Manual boxes have no assetId and are never affected by imports
+     */
+    public function createManualBox(User $user, string $name): StorageBox
+    {
+        $storageBox = new StorageBox();
+        $storageBox->setUser($user);
+        $storageBox->setAssetId(null);  // No assetId = manual box
+        $storageBox->setName($name);
+        $storageBox->setItemCount(0);
+
+        $this->entityManager->persist($storageBox);
+        $this->entityManager->flush();
+
+        $this->logger->info('Created manual storage box', [
+            'user_id' => $user->getId(),
+            'name' => $name
+        ]);
+
+        return $storageBox;
     }
 
     /**
@@ -210,6 +272,66 @@ class StorageBoxService
     public function getItemsInStorageBox(StorageBox $box): array
     {
         return $this->itemUserRepository->findBy(['storageBox' => $box]);
+    }
+
+    /**
+     * Get all manual storage boxes for a user (for friend lending tracking)
+     */
+    public function getManualBoxes(User $user): array
+    {
+        return $this->storageBoxRepository->findManualBoxes($user);
+    }
+
+    /**
+     * Get all Steam-imported storage boxes for a user
+     */
+    public function getSteamBoxes(User $user): array
+    {
+        return $this->storageBoxRepository->findSteamBoxes($user);
+    }
+
+    /**
+     * Rename a manual storage box
+     */
+    public function renameManualBox(StorageBox $box, string $newName): void
+    {
+        if ($box->isSteamBox()) {
+            throw new \InvalidArgumentException('Cannot rename Steam-imported storage boxes');
+        }
+
+        $box->setName($newName);
+        $this->entityManager->flush();
+
+        $this->logger->info('Renamed manual storage box', [
+            'box_id' => $box->getId(),
+            'old_name' => $box->getName(),
+            'new_name' => $newName
+        ]);
+    }
+
+    /**
+     * Delete a manual storage box (moves items back to main inventory)
+     */
+    public function deleteManualBox(StorageBox $box): void
+    {
+        if ($box->isSteamBox()) {
+            throw new \InvalidArgumentException('Cannot delete Steam-imported storage boxes');
+        }
+
+        // Move items back to main inventory (set storageBox to null)
+        $items = $this->getItemsInStorageBox($box);
+        foreach ($items as $item) {
+            $item->setStorageBox(null);
+        }
+
+        $this->entityManager->remove($box);
+        $this->entityManager->flush();
+
+        $this->logger->info('Deleted manual storage box', [
+            'box_id' => $box->getId(),
+            'name' => $box->getName(),
+            'items_moved' => count($items)
+        ]);
     }
 }
 ```
@@ -336,7 +458,7 @@ public function prepareImportPreview(User $user, string $tradeableJson, string $
 }
 ```
 
-Update `executeImport()` to sync storage boxes:
+Update `executeImport()` to sync storage boxes and preserve items in storage:
 
 ```php
 public function executeImport(User $user, string $sessionKey): ImportResult
@@ -358,8 +480,23 @@ public function executeImport(User $user, string $sessionKey): ImportResult
             $this->storageBoxService->syncStorageBoxes($user, $storageBoxesData);
         }
 
-        // Delete all existing user inventory items
-        // ... rest of existing import logic ...
+        // IMPORTANT: Delete ONLY items in main inventory (storageBox IS NULL)
+        // Items in storage containers (both Steam and manual) are preserved
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->delete(ItemUser::class, 'iu')
+            ->where('iu.user = :user')
+            ->andWhere('iu.storageBox IS NULL')  // Only delete items NOT in storage
+            ->setParameter('user', $user);
+
+        $deletedCount = $qb->getQuery()->execute();
+
+        $this->logger->info('Deleted main inventory items during import', [
+            'user_id' => $user->getId(),
+            'deleted_count' => $deletedCount,
+            'preserved_in_storage' => true
+        ]);
+
+        // ... rest of existing import logic (create new ItemUser entities) ...
 
         $this->entityManager->flush();
         $this->entityManager->commit();
@@ -486,6 +623,7 @@ Add storage box count to the stats display:
 2. **Verify Database**:
    ```sql
    SELECT * FROM storage_box;
+   SELECT * FROM item_user WHERE storage_box_id IS NOT NULL;
    ```
    Should show your storage boxes with names, item counts, etc.
 
@@ -499,12 +637,28 @@ Add storage box count to the stats display:
    - Verify storage boxes are updated (not duplicated)
    - Verify assetId matching works correctly
 
+5. **Test Item Preservation During Import** (CRITICAL):
+   - Manually assign some items to a storage box (set storage_box_id in database)
+   - Or create a manual storage box and assign items to it
+   - Run a full inventory import
+   - Verify items in storage boxes are NOT deleted
+   - Verify only main inventory items (storage_box_id = NULL) are replaced
+   - Check logs to confirm deletion count excludes storage items
+
+6. **Test Manual Storage Box Preservation**:
+   - Create a manual storage box (assetId = NULL) via database or future UI
+   - Assign some items to this manual box
+   - Run inventory import
+   - Verify manual box still exists unchanged
+   - Verify items in manual box are still there
+
 ## Acceptance Criteria
 
-- [ ] StorageBoxService created with all methods
+### Import Functionality
+- [ ] StorageBoxService created with all methods (including manual box support)
 - [ ] Storage boxes are extracted from JSON during import
 - [ ] Storage boxes are created in database during import
-- [ ] Existing storage boxes are updated (not duplicated) on re-import
+- [ ] Existing Steam storage boxes are updated (not duplicated) on re-import
 - [ ] Import preview shows storage box count
 - [ ] Storage box names are parsed correctly from name tags
 - [ ] Storage box item counts are parsed correctly
@@ -513,17 +667,46 @@ Add storage box count to the stats display:
 - [ ] No errors in logs during import
 - [ ] Multiple storage boxes per user are supported
 
+### Item Preservation (CRITICAL)
+- [ ] Items in ANY storage box (storageBox IS NOT NULL) are NEVER deleted during import
+- [ ] Only items in main inventory (storageBox IS NULL) are deleted/replaced during import
+- [ ] Import deletion query includes `WHERE storageBox IS NULL` condition
+- [ ] Import logs show count of preserved items in storage
+- [ ] Items in Steam storage boxes are preserved
+- [ ] Items in manual storage boxes are preserved
+- [ ] After import, storage items remain organized in their boxes
+
+### Manual Storage Box Support
+- [x] StorageBox entity supports nullable assetId (for manual boxes)
+- [x] Database asset_id column is nullable
+- [ ] Manual storage boxes (assetId = null) are NEVER modified by imports
+- [ ] Only Steam boxes (assetId != null) are updated during imports
+- [x] Repository methods exist to differentiate manual vs Steam boxes
+- [x] StorageBox entity has isManualBox() and isSteamBox() helper methods
+- [ ] Manual boxes can be created via createManualBox() method
+- [ ] Manual boxes can be renamed and deleted independently
+
 ## Dependencies
 
 - Task 2-1: Storage Box Database Setup (required)
 
-## Next Task
+## Next Tasks
 
 **Task 2-3**: Storage Box Display - Update inventory page to show storage boxes and items in storage.
 
+**Task 2-4** (Future): Manual Storage Box Management UI
+- Create UI for creating manual storage boxes (for friend lending tracking)
+- Add ability to assign items to manual boxes
+- Add ability to move items between boxes
+- Add ability to rename/delete manual boxes
+- Show separate sections for Steam boxes vs manual boxes
+
 ## Related Files
 
+- `src/Entity/StorageBox.php` (modified - added isManualBox/isSteamBox methods)
+- `src/Repository/StorageBoxRepository.php` (modified - added findManualBoxes/findSteamBoxes)
 - `src/Service/StorageBoxService.php` (new)
 - `src/Service/InventoryImportService.php` (modified)
 - `src/DTO/ImportPreview.php` (modified)
 - `templates/inventory/import_preview.html.twig` (modified)
+- `migrations/Version20251103024338.php` (new - makes assetId nullable)

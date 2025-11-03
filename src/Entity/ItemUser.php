@@ -11,7 +11,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'item_user')]
 #[ORM\Index(columns: ['user_id'], name: 'idx_item_user_user')]
 #[ORM\Index(columns: ['user_id', 'item_id'], name: 'idx_item_user_composite')]
-#[ORM\Index(columns: ['storage_box_name'], name: 'idx_storage_box')]
 #[ORM\HasLifecycleCallbacks]
 class ItemUser
 {
@@ -41,8 +40,9 @@ class ItemUser
     #[ORM\Column(type: Types::INTEGER, nullable: true)]
     private ?int $patternIndex = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $storageBoxName = null;
+    #[ORM\ManyToOne(targetEntity: StorageBox::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?StorageBox $storageBox = null;
 
     #[ORM\Column(length: 500, nullable: true)]
     private ?string $inspectLink = null;
@@ -197,14 +197,14 @@ class ItemUser
         return $this;
     }
 
-    public function getStorageBoxName(): ?string
+    public function getStorageBox(): ?StorageBox
     {
-        return $this->storageBoxName;
+        return $this->storageBox;
     }
 
-    public function setStorageBoxName(?string $storageBoxName): static
+    public function setStorageBox(?StorageBox $storageBox): static
     {
-        $this->storageBoxName = $storageBoxName;
+        $this->storageBox = $storageBox;
         return $this;
     }
 
