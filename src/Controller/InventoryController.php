@@ -46,12 +46,112 @@ class InventoryController extends AbstractController
             ->getOneOrNullResult();
 
             $priceValue = $latestPrice ? (float) $latestPrice->getPrice() : 0.0;
-            $totalValue += $priceValue;
+
+            // Get sticker prices if item has stickers
+            $stickersWithPrices = [];
+            $stickersTotalValue = 0.0;
+            $stickers = $itemUser->getStickers();
+
+            if ($stickers !== null && is_array($stickers)) {
+                foreach ($stickers as $sticker) {
+                    if (!isset($sticker['name'])) {
+                        continue;
+                    }
+
+                    // Construct market hash name using the correct type (Sticker or Patch)
+                    $type = $sticker['type'] ?? 'Sticker'; // Default to Sticker for backward compatibility
+                    $stickerHashName = $type . ' | ' . $sticker['name'];
+
+                    // Try to find the sticker item and its price
+                    $stickerItem = $this->entityManager->createQuery('
+                        SELECT i
+                        FROM App\Entity\Item i
+                        WHERE i.hashName = :hashName
+                    ')
+                    ->setParameter('hashName', $stickerHashName)
+                    ->setMaxResults(1)
+                    ->getOneOrNullResult();
+
+                    $stickerPriceValue = 0.0;
+                    if ($stickerItem !== null) {
+                        $stickerPrice = $this->entityManager->createQuery('
+                            SELECT ip
+                            FROM App\Entity\ItemPrice ip
+                            WHERE ip.item = :item
+                            ORDER BY ip.priceDate DESC
+                        ')
+                        ->setParameter('item', $stickerItem)
+                        ->setMaxResults(1)
+                        ->getOneOrNullResult();
+
+                        if ($stickerPrice !== null) {
+                            $stickerPriceValue = (float) $stickerPrice->getPrice();
+                        }
+                    }
+
+                    $stickersTotalValue += $stickerPriceValue;
+                    $stickersWithPrices[] = array_merge($sticker, [
+                        'price' => $stickerPriceValue,
+                        'hash_name' => $stickerHashName,
+                    ]);
+                }
+            }
+
+            // Get keychain price if item has a keychain
+            $keychainPrice = null;
+            $keychainPriceValue = 0.0;
+            $keychainWithPrice = null;
+            $keychain = $itemUser->getKeychain();
+
+            if ($keychain !== null && isset($keychain['name'])) {
+                // Construct market hash name for keychain: "Charm | {name}"
+                $keychainHashName = 'Charm | ' . $keychain['name'];
+
+                // Try to find the keychain item and its price
+                $keychainItem = $this->entityManager->createQuery('
+                    SELECT i
+                    FROM App\Entity\Item i
+                    WHERE i.hashName = :hashName
+                ')
+                ->setParameter('hashName', $keychainHashName)
+                ->setMaxResults(1)
+                ->getOneOrNullResult();
+
+                if ($keychainItem !== null) {
+                    $keychainPrice = $this->entityManager->createQuery('
+                        SELECT ip
+                        FROM App\Entity\ItemPrice ip
+                        WHERE ip.item = :item
+                        ORDER BY ip.priceDate DESC
+                    ')
+                    ->setParameter('item', $keychainItem)
+                    ->setMaxResults(1)
+                    ->getOneOrNullResult();
+
+                    if ($keychainPrice !== null) {
+                        $keychainPriceValue = (float) $keychainPrice->getPrice();
+                    }
+                }
+
+                $keychainWithPrice = array_merge($keychain, [
+                    'price' => $keychainPriceValue,
+                    'hash_name' => $keychainHashName,
+                ]);
+            }
+
+            // Add only keychain price to total item value (stickers cannot be removed, so they don't add value)
+            $itemTotalValue = $priceValue + $keychainPriceValue;
+            $totalValue += $itemTotalValue;
 
             $itemsWithPrices[] = [
                 'itemUser' => $itemUser,
                 'latestPrice' => $latestPrice,
                 'priceValue' => $priceValue,
+                'stickersWithPrices' => $stickersWithPrices,
+                'stickersTotalValue' => $stickersTotalValue,
+                'keychainWithPrice' => $keychainWithPrice,
+                'keychainPriceValue' => $keychainPriceValue,
+                'itemTotalValue' => $itemTotalValue,
             ];
         }
 

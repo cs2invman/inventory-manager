@@ -175,6 +175,9 @@ class InventoryImportService
                     if (isset($data['stickers'])) {
                         $itemUser->setStickers($data['stickers']);
                     }
+                    if (isset($data['keychain'])) {
+                        $itemUser->setKeychain($data['keychain']);
+                    }
                     if (isset($data['name_tag'])) {
                         $itemUser->setNameTag($data['name_tag']);
                     }
@@ -328,11 +331,16 @@ class InventoryImportService
             }
         }
 
-        // Extract stickers from descriptions
+        // Extract stickers, keychain, and name tag from descriptions
         if (isset($description['descriptions']) && is_array($description['descriptions'])) {
             $stickers = $this->extractStickerInfo($description['descriptions']);
             if ($stickers !== null) {
                 $data['stickers'] = $stickers;
+            }
+
+            $keychain = $this->extractKeychainInfo($description['descriptions']);
+            if ($keychain !== null) {
+                $data['keychain'] = $keychain;
             }
 
             $nameTag = $this->extractNameTag($description['descriptions']);
@@ -387,12 +395,19 @@ class InventoryImportService
                 $title = $match[2] ?? null;
 
                 if ($imageUrl && $title) {
-                    // Remove prefix like "Sticker: " or "Patch: " from title
-                    $name = preg_replace('/^(Sticker|Patch):\s*/', '', $title);
+                    // Detect if it's a sticker or patch and remove the prefix
+                    $type = 'Sticker'; // Default to sticker
+                    $name = $title;
+
+                    if (preg_match('/^(Sticker|Patch):\s*(.+)$/', $title, $typeMatch)) {
+                        $type = $typeMatch[1];
+                        $name = $typeMatch[2];
+                    }
 
                     $stickers[] = [
                         'slot' => $slot,
                         'name' => $name,
+                        'type' => $type,
                         'image_url' => $imageUrl,
                         'wear' => null, // Not available in basic inventory API
                     ];
@@ -403,6 +418,50 @@ class InventoryImportService
             return !empty($stickers) ? $stickers : null;
         } catch (\Exception $e) {
             $this->logger->error('Failed to parse sticker HTML', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Extract keychain information from HTML in descriptions
+     */
+    private function extractKeychainInfo(array $descriptions): ?array
+    {
+        foreach ($descriptions as $desc) {
+            if (($desc['name'] ?? '') === 'keychain_info' && isset($desc['value'])) {
+                return $this->parseKeychainHtml($desc['value']);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse keychain HTML to extract keychain data
+     */
+    private function parseKeychainHtml(string $html): ?array
+    {
+        try {
+            // Use regex to extract keychain image URL and title
+            // Format: <img width=64 height=48 src="..." title="Charm: Name">
+            if (preg_match('/<img[^>]+src="([^"]+)"[^>]+title="([^"]+)"/', $html, $matches)) {
+                $imageUrl = $matches[1] ?? null;
+                $title = $matches[2] ?? null;
+
+                if ($imageUrl && $title) {
+                    // Remove "Charm: " prefix from title
+                    $name = preg_replace('/^Charm:\s*/', '', $title);
+
+                    return [
+                        'name' => $name,
+                        'image_url' => $imageUrl,
+                    ];
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to parse keychain HTML', ['error' => $e->getMessage()]);
             return null;
         }
     }

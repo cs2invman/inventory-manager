@@ -59,6 +59,11 @@
 
                         <!-- Item Image -->
                         <div class="relative bg-gray-900 rounded-lg p-4 mb-3 flex items-center justify-center h-48">
+                            <!-- Rarity Indicator Line -->
+                            {% if item.rarityColor %}
+                                <div class="absolute bottom-0 left-0 right-0 h-1 rounded-b-lg" style="background-color: {{ item.rarityColor }};"></div>
+                            {% endif %}
+
                             <img
                                 src="{{ item.imageUrl }}"
                                 alt="{{ item.name }}"
@@ -88,17 +93,41 @@
                                 </span>
                             {% endif %}
 
-                            <!-- Stickers Overlay -->
-                            {% if itemUser.stickers %}
+                            <!-- Stickers and Keychain Overlay -->
+                            {% if itemData.stickersWithPrices or itemData.keychainWithPrice %}
                                 <div class="absolute bottom-2 left-2 flex gap-1">
-                                    {% for sticker in itemUser.stickers %}
-                                        <img
-                                            src="{{ sticker.image_url }}"
-                                            alt="{{ sticker.name }}"
-                                            title="{{ sticker.name }}"
-                                            class="h-10 w-12 rounded bg-gray-800/80 p-0.5"
+                                    {% if itemData.keychainWithPrice %}
+                                        <a
+                                            href="https://steamcommunity.com/market/listings/730/{{ itemData.keychainWithPrice.hash_name|url_encode }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="hover:opacity-75 transition-opacity"
+                                            title="Keychain: {{ itemData.keychainWithPrice.name }} (${{ itemData.keychainWithPrice.price|number_format(2, '.', ',') }})"
                                         >
-                                    {% endfor %}
+                                            <img
+                                                src="{{ itemData.keychainWithPrice.image_url }}"
+                                                alt="{{ itemData.keychainWithPrice.name }}"
+                                                class="h-8 w-10 rounded bg-gray-800/80 p-0.5 border border-yellow-500"
+                                            >
+                                        </a>
+                                    {% endif %}
+                                    {% if itemData.stickersWithPrices %}
+                                        {% for sticker in itemData.stickersWithPrices %}
+                                            <a
+                                                href="https://steamcommunity.com/market/listings/730/{{ sticker.hash_name|url_encode }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="hover:opacity-75 transition-opacity"
+                                                title="{{ sticker.name }} (${{ sticker.price|number_format(2, '.', ',') }})"
+                                            >
+                                                <img
+                                                    src="{{ sticker.image_url }}"
+                                                    alt="{{ sticker.name }}"
+                                                    class="h-8 w-10 rounded bg-gray-800/80 p-0.5"
+                                                >
+                                            </a>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         </div>
@@ -116,10 +145,10 @@
                                         </span>
                                     {% endif %}
                                     {% if itemUser.floatValue %}
-                                        <span class="text-gray-300 font-mono ml-2">{{ itemUser.floatValue }}</span>
+                                        <span class="text-gray-300 font-mono ml-1">{{ itemUser.floatValue }}</span>
                                     {% endif %}
                                     {% if itemUser.patternIndex %}
-                                        <span class="text-gray-300 font-mono ml-2">[{{ itemUser.patternIndex }}]</span>
+                                        <span class="text-gray-300 font-mono ml-1">[{{ itemUser.patternIndex }}]</span>
                                     {% endif %}
                                 </div>
 

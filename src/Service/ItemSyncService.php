@@ -272,11 +272,42 @@ class ItemSyncService
 
         if (isset($data['rarity'])) {
             $item->setRarity($data['rarity']);
+            // Set rarity color based on rarity name
+            $rarityColor = $this->getRarityColor($data['rarity']);
+            $item->setRarityColor($rarityColor);
         }
 
         if (isset($data['points'])) {
             $item->setPoints((int) $data['points']);
         }
+    }
+
+    /**
+     * Map CS2 rarity names to their hex colors
+     */
+    private function getRarityColor(string $rarity): string
+    {
+        $colorMap = [
+            'Covert' => '#eb4b4b',
+            'Extraordinary' => '#eb4b4b',
+            'Exotic' => '#eb4b4b',
+            'Contraband' => '#e4ae39',  // Gold for contraband (special case)
+            'Classified' => '#d32ce6',
+            'Exceptional' => '#d32ce6',
+            'Restricted' => '#8847ff',
+            'Master' => '#e4ae39',
+            'Remarkable' => '#e4ae39',
+            'Mil-Spec Grade' => '#4b69ff',
+            'Distinguished' => '#4b69ff',
+            'Superior' => '#4b69ff',
+            'High Grade' => '#5e98d9',
+            'Industrial Grade' => '#5e98d9',
+            'Base Grade' => '#b0c3d9',
+            'Consumer Grade' => '#b0c3d9',
+            'Common' => '#b0c3d9',
+        ];
+
+        return $colorMap[$rarity] ?? '#b0c3d9'; // Default to gray if unknown
     }
 
     /**

@@ -59,6 +59,9 @@ class ItemUser
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $stickers = null;
 
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $keychain = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $nameTag = null;
 
@@ -273,6 +276,17 @@ class ItemUser
             'image_url' => $imageUrl,
         ];
 
+        return $this;
+    }
+
+    public function getKeychain(): ?array
+    {
+        return $this->keychain;
+    }
+
+    public function setKeychain(?array $keychain): static
+    {
+        $this->keychain = $keychain;
         return $this;
     }
 
