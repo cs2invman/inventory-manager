@@ -23,6 +23,7 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 
 - Has one `UserConfig` (Steam ID, settings)
 - Has many `ItemUser` (inventory items)
+- Has many `StorageBox` (storage containers)
 - Fields: email, password, firstName, lastName, isActive, lastLoginAt
 
 **Item** (CS2 items from Steam marketplace)
@@ -35,12 +36,20 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 
 **ItemUser** (user inventory instances with custom attributes)
 
-- Belongs to `User` and `Item`
+- Belongs to `User`, `Item`, and optionally `StorageBox`
 - Fields: assetId, floatValue, paintSeed, wearCategory, isStattrak, isSouvenir
 - JSON fields: stickers[], keychain{}
 - Financial tracking: acquiredPrice, currentMarketValue
-- Storage: storageBoxName field (for organizing items)
 - Auto-calculates: wearCategory (FN/MW/FT/WW/BS), profit/loss
+
+**StorageBox** (storage containers for organizing items)
+
+- Belongs to `User`
+- Two types: Steam-imported (with assetId) and manual (without assetId)
+- Fields: assetId (nullable), name, itemCount, modificationDate
+- Steam boxes sync automatically during inventory imports
+- Manual boxes are for tracking items lent to friends, never modified by imports
+- Helper methods: `isManualBox()`, `isSteamBox()`
 
 **ItemPrice** (historical price data)
 
@@ -69,11 +78,20 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 
 **InventoryImportService** (`src/Service/InventoryImportService.php`)
 
-- Parses Steam inventory JSON exports
+- Parses Steam inventory JSON exports (including storage boxes)
 - Matches items by classId to local database
 - Extracts: float values, stickers, keychains, StatTrak counters
 - Creates preview before final import
+- **Import behavior**: Only deletes items with `storageBox = null`; items in storage boxes are preserved
 - Calculates market values including sticker/keychain prices
+
+**StorageBoxService** (`src/Service/StorageBoxService.php`)
+
+- Creates and manages storage boxes
+- Syncs Steam storage boxes during import (by assetId)
+- Creates manual storage boxes for friend lending tracking
+- Methods: `syncStorageBoxes()`, `createManualBox()`, `findByAssetId()`
+- Manual boxes are never touched by import process
 
 **UserConfigService** (`src/Service/UserConfigService.php`)
 
@@ -116,7 +134,7 @@ php bin/console app:steam:sync-items      # Sync JSON to database
     - Float value tracking and wear category calculation
     - Sticker and keychain support with pricing
     - Market value calculations
-    - Storage box organization (field exists, UI pending)
+    - Storage box support (Steam-imported and manual boxes for friend lending)
 
 4. **User Settings**
     - Steam ID configuration (SteamID64 format)
@@ -129,8 +147,12 @@ php bin/console app:steam:sync-items      # Sync JSON to database
 1. User navigates to `/inventory/import`
 2. If no Steam ID configured, redirect to `/settings`
 3. User uploads Steam inventory JSON file
-4. System shows preview with matched items
-5. User confirms, items saved to database as ItemUser records
+4. System shows preview with matched items and storage boxes
+5. User confirms import:
+   - Storage boxes synced (Steam boxes only, manual boxes untouched)
+   - Only main inventory items (`storageBox = null`) deleted/replaced
+   - Items in ANY storage box are preserved
+6. Items saved to database as ItemUser records
 
 **Item Matching:**
 
@@ -238,11 +260,13 @@ Key application routes:
 - `user_config` - User settings (one-to-one with user)
 - `item` - CS2 items master data from Steam
 - `item_price` - Historical price records for items
-- `item_user` - User inventory instances (junction table with additional data)
+- `item_user` - User inventory instances (has FK to storage_box)
+- `storage_box` - Storage containers (Steam-imported or manual)
 
 **Key Indexes:**
 
-- `item_user`: composite index on (user_id, item_id), index on storage_box_name
+- `item_user`: composite index on (user_id, item_id), index on storage_box_id
+- `storage_box`: unique index on asset_id, index on user_id
 - `item`: indexes on type, category, rarity, active, external_id
 
 ## Coding Conventions

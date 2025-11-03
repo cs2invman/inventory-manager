@@ -22,7 +22,8 @@ class InventoryImportService
         private ItemRepository $itemRepository,
         private ItemUserRepository $itemUserRepository,
         private RequestStack $requestStack,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private StorageBoxService $storageBoxService
     ) {
     }
 
@@ -34,12 +35,19 @@ class InventoryImportService
         $errors = [];
         $parsedItems = [];
         $unmatchedItems = [];
+        $storageBoxesData = [];
 
         // Parse both JSON inputs
         try {
             $tradeableData = json_decode($tradeableJson, true, 512, JSON_THROW_ON_ERROR);
             $parsedTradeableItems = $this->parseInventoryResponse($tradeableData);
             $parsedItems = array_merge($parsedItems, $parsedTradeableItems);
+
+            // Extract storage boxes
+            $storageBoxesData = array_merge(
+                $storageBoxesData,
+                $this->storageBoxService->extractStorageBoxesFromJson($tradeableData)
+            );
         } catch (\JsonException $e) {
             $errors[] = 'Invalid JSON in tradeable items: ' . $e->getMessage();
         }
@@ -48,6 +56,12 @@ class InventoryImportService
             $tradeLockedData = json_decode($tradeLockedJson, true, 512, JSON_THROW_ON_ERROR);
             $parsedTradeLockedItems = $this->parseInventoryResponse($tradeLockedData);
             $parsedItems = array_merge($parsedItems, $parsedTradeLockedItems);
+
+            // Extract storage boxes
+            $storageBoxesData = array_merge(
+                $storageBoxesData,
+                $this->storageBoxService->extractStorageBoxesFromJson($tradeLockedData)
+            );
         } catch (\JsonException $e) {
             $errors[] = 'Invalid JSON in trade-locked items: ' . $e->getMessage();
         }
@@ -93,8 +107,8 @@ class InventoryImportService
         // Generate preview statistics
         $stats = $this->generatePreviewStats($mappedItems, $currentInventory);
 
-        // Store parsed data in session
-        $sessionKey = $this->storeInSession($mappedItems);
+        // Store parsed data in session (including storage boxes)
+        $sessionKey = $this->storeInSession($mappedItems, $storageBoxesData);
 
         return new ImportPreview(
             totalItems: count($mappedItems),
@@ -106,6 +120,7 @@ class InventoryImportService
             unmatchedItems: $unmatchedItems,
             errors: $errors,
             sessionKey: $sessionKey,
+            storageBoxCount: count($storageBoxesData),
         );
     }
 
@@ -114,9 +129,9 @@ class InventoryImportService
      */
     public function executeImport(User $user, string $sessionKey): ImportResult
     {
-        $mappedItems = $this->retrieveFromSession($sessionKey);
+        $sessionData = $this->retrieveFromSession($sessionKey);
 
-        if ($mappedItems === null) {
+        if ($sessionData === null) {
             return new ImportResult(
                 totalProcessed: 0,
                 successCount: 0,
@@ -125,6 +140,9 @@ class InventoryImportService
                 skippedItems: [],
             );
         }
+
+        $mappedItems = $sessionData['items'];
+        $storageBoxesData = $sessionData['storage_boxes'] ?? [];
 
         $totalProcessed = 0;
         $successCount = 0;
@@ -135,12 +153,26 @@ class InventoryImportService
         $this->entityManager->beginTransaction();
 
         try {
-            // Delete all existing user inventory items
-            $existingItems = $this->itemUserRepository->findUserInventory($user->getId());
-            foreach ($existingItems as $existingItem) {
-                $this->entityManager->remove($existingItem);
+            // Sync storage boxes FIRST
+            if (!empty($storageBoxesData)) {
+                $this->storageBoxService->syncStorageBoxes($user, $storageBoxesData);
             }
-            $this->entityManager->flush();
+
+            // IMPORTANT: Delete ONLY items in main inventory (storageBox IS NULL)
+            // Items in storage containers (both Steam and manual) are preserved
+            $qb = $this->entityManager->createQueryBuilder();
+            $qb->delete(ItemUser::class, 'iu')
+                ->where('iu.user = :user')
+                ->andWhere('iu.storageBox IS NULL')  // Only delete items NOT in storage
+                ->setParameter('user', $user);
+
+            $deletedCount = $qb->getQuery()->execute();
+
+            $this->logger->info('Deleted main inventory items during import', [
+                'user_id' => $user->getId(),
+                'deleted_count' => $deletedCount,
+                'preserved_in_storage' => true
+            ]);
 
             // Create new ItemUser entities from parsed data
             foreach ($mappedItems as $mappedItem) {
@@ -559,15 +591,18 @@ class InventoryImportService
     /**
      * Store mapped items in session
      */
-    private function storeInSession(array $mappedItems): string
+    private function storeInSession(array $mappedItems, array $storageBoxesData): string
     {
         $session = $this->requestStack->getSession();
         $sessionKey = self::SESSION_PREFIX . bin2hex(random_bytes(16));
 
-        // Store only serializable data
-        $serializableData = [];
+        $serializableData = [
+            'items' => [],
+            'storage_boxes' => $storageBoxesData
+        ];
+
         foreach ($mappedItems as $mappedItem) {
-            $serializableData[] = [
+            $serializableData['items'][] = [
                 'item_id' => $mappedItem['item']->getId(),
                 'data' => $mappedItem['data'],
             ];
@@ -592,7 +627,7 @@ class InventoryImportService
 
         // Reconstruct mapped items with Item entities
         $mappedItems = [];
-        foreach ($serializableData as $serializedItem) {
+        foreach ($serializableData['items'] as $serializedItem) {
             $item = $this->itemRepository->find($serializedItem['item_id']);
             if ($item === null) {
                 continue;
@@ -604,7 +639,10 @@ class InventoryImportService
             ];
         }
 
-        return $mappedItems;
+        return [
+            'items' => $mappedItems,
+            'storage_boxes' => $serializableData['storage_boxes'] ?? []
+        ];
     }
 
     /**
@@ -618,19 +656,21 @@ class InventoryImportService
 
     /**
      * Determine if an item should be skipped (non-tradeable collectibles)
+     *
+     * Storage boxes ARE skipped here because they're handled separately by StorageBoxService
      */
     private function shouldSkipItem(array $description): bool
     {
         $itemType = $this->extractItemType($description);
 
-        // Skip non-tradeable item types
+        // Skip non-tradeable item types (including storage boxes - handled separately)
         $skipTypes = [
-            'CSGO_Type_Tool',           // Storage Units
-            'CSGO_Type_Collectible',    // Medals, Coins, Badges
-            'CSGO_Type_MusicKit',       // Music Kits
-            'CSGO_Type_Spray',          // Graffiti
-            'Type_Collectible',         // Alternative collectible type
-            'Type_Spray',               // Alternative spray type
+            'CSGO_Type_Tool',              // Storage Units and other tools
+            'CSGO_Type_Collectible',       // Medals, Coins, Badges
+            'CSGO_Type_MusicKit',          // Music Kits
+            'CSGO_Type_Spray',             // Graffiti
+            'Type_Collectible',            // Alternative collectible type
+            'Type_Spray',                  // Alternative spray type
         ];
 
         if (in_array($itemType, $skipTypes)) {
@@ -643,7 +683,6 @@ class InventoryImportService
                 $category = $tag['category'] ?? '';
                 $internalName = $tag['internal_name'] ?? '';
 
-                // Skip if it's explicitly a collectible, spray, or tool
                 if ($category === 'Type' && in_array($internalName, $skipTypes)) {
                     return true;
                 }

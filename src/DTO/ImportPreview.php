@@ -14,6 +14,7 @@ class ImportPreview
         public readonly array $unmatchedItems,
         public readonly array $errors,
         public readonly string $sessionKey,
+        public readonly int $storageBoxCount = 0,
     ) {
     }
 
@@ -39,6 +40,7 @@ class ImportPreview
             'unmatched_items' => $this->unmatchedItems,
             'errors' => $this->errors,
             'session_key' => $this->sessionKey,
+            'storage_box_count' => $this->storageBoxCount,
         ];
     }
 }
