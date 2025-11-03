@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Repository\ItemUserRepository;
+use App\Repository\StorageBoxRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -15,23 +17,64 @@ class InventoryController extends AbstractController
 {
     public function __construct(
         private ItemUserRepository $itemUserRepository,
+        private StorageBoxRepository $storageBoxRepository,
         private EntityManagerInterface $entityManager
     ) {
     }
 
     #[Route('', name: 'inventory_index', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $user = $this->getUser();
 
-        // Fetch user inventory
+        // Get filter parameters
+        $filter = $request->query->get('filter', 'all');
+        $filterBoxId = $request->query->getInt('box_id', 0);
+
+        // Fetch ALL user inventory items (active + in storage)
         $inventoryItems = $this->itemUserRepository->findUserInventory($user->getId());
+
+        // Get all storage boxes with actual item counts from database
+        $storageBoxesData = $this->storageBoxRepository->findWithItemCount($user);
+
+        // Transform the data to make it easier to use in template
+        $storageBoxes = [];
+        foreach ($storageBoxesData as $data) {
+            $box = $data[0]; // The StorageBox entity
+            $actualItemCount = (int) $data['actualItemCount'];
+
+            $storageBoxes[] = [
+                'entity' => $box,
+                'id' => $box->getId(),
+                'name' => $box->getName(),
+                'reportedCount' => $box->getItemCount(),
+                'actualCount' => $actualItemCount,
+                'isSynced' => ($box->getItemCount() === $actualItemCount),
+                'modificationDate' => $box->getModificationDate(),
+            ];
+        }
+
+        // Apply filtering
+        $filteredItems = $inventoryItems;
+        if ($filter === 'active') {
+            // Only items NOT in storage
+            $filteredItems = array_filter($inventoryItems, fn($item) => $item->getStorageBox() === null);
+        } elseif ($filter === 'box' && $filterBoxId > 0) {
+            // Only items in specific storage box
+            $filteredItems = array_filter($inventoryItems, fn($item) =>
+                $item->getStorageBox() && $item->getStorageBox()->getId() === $filterBoxId
+            );
+        }
+
+        // Calculate stats
+        $activeInventoryCount = count(array_filter($inventoryItems, fn($item) => $item->getStorageBox() === null));
+        $storedItemsCount = count($inventoryItems) - $activeInventoryCount;
 
         // Get latest prices for all items and calculate total value
         $totalValue = 0.0;
         $itemsWithPrices = [];
 
-        foreach ($inventoryItems as $itemUser) {
+        foreach ($filteredItems as $itemUser) {
             $item = $itemUser->getItem();
 
             // Get the latest price for this item
@@ -162,8 +205,14 @@ class InventoryController extends AbstractController
 
         return $this->render('inventory/index.html.twig', [
             'itemsWithPrices' => $itemsWithPrices,
+            'storageBoxes' => $storageBoxes,
             'totalValue' => $totalValue,
-            'itemCount' => count($inventoryItems),
+            'totalItems' => count($inventoryItems),
+            'itemCount' => count($filteredItems),
+            'activeInventoryCount' => $activeInventoryCount,
+            'storedItemsCount' => $storedItemsCount,
+            'currentFilter' => $filter,
+            'currentBoxId' => $filterBoxId,
         ]);
     }
 }

@@ -10,7 +10,7 @@
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h2 class="text-3xl font-bold text-white mb-2">My Inventory</h2>
-                    <p class="text-gray-400">{{ itemCount }} items in your collection</p>
+                    <p class="text-gray-400">{{ totalItems }} total items ({{ activeInventoryCount }} active, {{ storedItemsCount }} in storage)</p>
                 </div>
                 <div class="text-right">
                     <div class="flex items-center justify-end space-x-4 mb-2">
@@ -26,6 +26,99 @@
                 </div>
             </div>
         </div>
+
+        <!-- Filter Controls -->
+        <div class="mb-6 flex flex-wrap items-center gap-4">
+            <label class="font-semibold text-white">Filter:</label>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ path('inventory_index', {filter: 'all'}) }}"
+                   class="px-4 py-2 rounded-lg transition-colors {{ currentFilter == 'all' ? 'bg-cs2-orange text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600' }}">
+                    All Items ({{ totalItems }})
+                </a>
+                <a href="{{ path('inventory_index', {filter: 'active'}) }}"
+                   class="px-4 py-2 rounded-lg transition-colors {{ currentFilter == 'active' ? 'bg-cs2-orange text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600' }}">
+                    Active Inventory ({{ activeInventoryCount }})
+                </a>
+
+                {% if storageBoxes|length > 0 %}
+                    <div class="relative">
+                        <select id="storage-box-filter"
+                                onchange="if(this.value) window.location.href = '{{ path('inventory_index') }}?filter=box&box_id=' + this.value; else window.location.href = '{{ path('inventory_index') }}';"
+                                class="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 border border-gray-600 hover:bg-gray-600 transition-colors">
+                            <option value="">By Storage Box...</option>
+                            {% for box in storageBoxes %}
+                                <option value="{{ box.id }}" {{ currentBoxId == box.id ? 'selected' : '' }}>
+                                    📦 {{ box.name }} ({{ box.actualCount }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="ml-auto text-gray-400">
+                <span>Storage Boxes: {{ storageBoxes|length }}</span>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="card">
+                <div class="text-sm text-gray-400 mb-1">Total Value</div>
+                <div class="text-2xl font-bold text-cs2-orange">${{ totalValue|number_format(2, '.', ',') }}</div>
+            </div>
+            <div class="card">
+                <div class="text-sm text-gray-400 mb-1">Total Items</div>
+                <div class="text-2xl font-bold text-white">{{ totalItems }}</div>
+            </div>
+            <div class="card">
+                <div class="text-sm text-gray-400 mb-1">Active Inventory</div>
+                <div class="text-2xl font-bold text-green-400">{{ activeInventoryCount }}</div>
+            </div>
+            <div class="card">
+                <div class="text-sm text-gray-400 mb-1">In Storage</div>
+                <div class="text-2xl font-bold text-blue-400">{{ storedItemsCount }}</div>
+            </div>
+        </div>
+
+        <!-- Storage Boxes Section (when viewing all items) -->
+        {% if currentFilter == 'all' and storageBoxes|length > 0 %}
+            <div class="mb-8">
+                <h2 class="text-xl font-bold text-white mb-4">Storage Boxes</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {% for box in storageBoxes %}
+                        <div class="bg-gradient-to-br from-blue-900/50 to-blue-800/30 border-2 border-blue-500/50 rounded-lg p-4 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-500/20 transition-all duration-200 storage-box-card">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-3xl">📦</span>
+                                <div class="flex items-center gap-1">
+                                    {% if box.isSynced %}
+                                        <span class="bg-blue-600 text-white px-2 py-1 rounded text-sm font-bold" title="Synced: {{ box.actualCount }} items">
+                                            {{ box.actualCount }} items
+                                        </span>
+                                    {% else %}
+                                        <span class="bg-yellow-600 text-white px-2 py-1 rounded text-sm font-bold" title="Not synced! Import shows {{ box.reportedCount }}, but database has {{ box.actualCount }}">
+                                            {{ box.reportedCount }} → {{ box.actualCount }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-lg text-white mb-2 truncate" title="{{ box.name }}">{{ box.name }}</h3>
+                            {% if box.modificationDate %}
+                                <div class="text-xs text-gray-400 mb-3">
+                                    Modified: {{ box.modificationDate|date('M d, Y') }}
+                                </div>
+                            {% endif %}
+                            <div class="flex gap-2">
+                                <a href="{{ path('inventory_index', {filter: 'box', box_id: box.id}) }}"
+                                   class="flex-1 text-center bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+                                    View Contents
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
 
         {% if itemsWithPrices is empty %}
             <!-- Empty State -->
@@ -43,6 +136,29 @@
                 </a>
             </div>
         {% else %}
+            <!-- Items Grid Header -->
+            <div class="mb-4">
+                <h2 class="text-xl font-bold text-white">
+                    {% if currentFilter == 'active' %}
+                        Active Inventory Items
+                    {% elseif currentFilter == 'box' and currentBoxId > 0 %}
+                        {% set selectedBox = null %}
+                        {% for box in storageBoxes %}
+                            {% if box.id == currentBoxId %}
+                                {% set selectedBox = box %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if selectedBox %}
+                            Items in {{ selectedBox.name }}
+                        {% else %}
+                            Storage Box Items
+                        {% endif %}
+                    {% else %}
+                        All Items
+                    {% endif %}
+                </h2>
+            </div>
+
             <!-- Items Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {% for itemData in itemsWithPrices %}
@@ -51,7 +167,16 @@
                     {% set latestPrice = itemData.latestPrice %}
                     {% set priceValue = itemData.priceValue %}
 
-                    <div class="card hover:border-cs2-orange transition-colors duration-200 group">
+                    <div class="card hover:border-cs2-orange transition-colors duration-200 group relative">
+                        <!-- Storage Indicator Badge -->
+                        {% if itemUser.storageBox is not null %}
+                            <div class="absolute top-2 left-2 z-10 storage-badge">
+                                <span class="inline-flex items-center gap-1 bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
+                                    📦 {{ itemUser.storageBox.name }}
+                                </span>
+                            </div>
+                        {% endif %}
+
                         <!-- Item Name -->
                         <h3 class="font-semibold text-white text-sm line-clamp-2 group-hover:text-cs2-orange transition-colors mb-3">
                             {{ item.name }}

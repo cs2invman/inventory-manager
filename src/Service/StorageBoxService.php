@@ -83,9 +83,30 @@ class StorageBoxService
             $value = $desc['value'] ?? '';
 
             if ($descName === 'nametag') {
-                // Parse: "Name Tag: ''SOUVENIRS''"
-                if (preg_match("/Name Tag:\s*['\"]([^'\"]+)['\"]/", $value, $matches)) {
+                // Parse storage box name from Steam's format
+                // Format from Steam JSON: "Name Tag: ''BOX_NAME''"
+                // The name is wrapped in double single quotes: ''NAME''
+
+                // First try to match double single quotes (Steam's format)
+                if (preg_match("/Name Tag:\s*''([^']+)''/", $value, $matches)) {
                     $name = $matches[1];
+                }
+                // Try single quotes
+                elseif (preg_match("/Name Tag:\s*'([^']+)'/", $value, $matches)) {
+                    $name = $matches[1];
+                }
+                // Try double quotes
+                elseif (preg_match('/Name Tag:\s*"([^"]+)"/', $value, $matches)) {
+                    $name = $matches[1];
+                }
+                // Fallback: extract everything after "Name Tag: " and clean it
+                elseif (preg_match("/Name Tag:\s*(.+?)(?:<\/|$)/", $value, $matches)) {
+                    $cleanName = trim(strip_tags($matches[1]));
+                    // Remove any remaining quotes
+                    $cleanName = trim($cleanName, "'\" ");
+                    if (!empty($cleanName)) {
+                        $name = $cleanName;
+                    }
                 }
             } elseif ($descName === 'attr: items count') {
                 // Parse: "Number of Items: 73"
