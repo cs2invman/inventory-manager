@@ -90,8 +90,15 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 - Creates and manages storage boxes
 - Syncs Steam storage boxes during import (by assetId)
 - Creates manual storage boxes for friend lending tracking
-- Methods: `syncStorageBoxes()`, `createManualBox()`, `findByAssetId()`
 - Manual boxes are never touched by import process
+
+**StorageBoxTransactionService** (`src/Service/StorageBoxTransactionService.php`)
+
+- Handles deposit/withdraw workflows for storage boxes
+- Compares inventory snapshots to detect item movements
+- Preview/confirm pattern: stores transaction in session between steps
+- Matches items by assetId or properties (handles assetId changes during withdrawals)
+- Methods: `prepareDepositPreview()`, `prepareWithdrawPreview()`, `executeDeposit()`, `executeWithdraw()`
 
 **UserConfigService** (`src/Service/UserConfigService.php`)
 
@@ -135,6 +142,7 @@ php bin/console app:steam:sync-items      # Sync JSON to database
     - Sticker and keychain support with pricing
     - Market value calculations
     - Storage box support (Steam-imported and manual boxes for friend lending)
+    - Deposit/withdraw workflows for moving items in/out of storage boxes
 
 4. **User Settings**
     - Steam ID configuration (SteamID64 format)
@@ -159,6 +167,17 @@ php bin/console app:steam:sync-items      # Sync JSON to database
 - Uses `classId` from Steam inventory to match local Item records
 - Extracts wear, stickers, keychains from item descriptions/actions
 - Calculates total value: base price + sticker prices + keychain value
+
+**Depositing/Withdrawing Items:**
+
+1. User clicks Deposit/Withdraw button on storage box
+2. User pastes Steam inventory JSON (tradeable and/or trade-locked)
+3. System compares current inventory with new snapshot:
+   - **Deposit**: Finds items that disappeared from active inventory
+   - **Withdraw**: Finds items that appeared in active inventory
+4. Preview shows items to be moved
+5. User confirms → items moved between inventory and storage box
+6. AssetId changes are handled by matching on item properties (hash name, float, pattern)
 
 **Price Calculation:**
 
@@ -250,6 +269,8 @@ Key application routes:
 - `/dashboard` - Main dashboard (after login)
 - `/inventory` - View user inventory
 - `/inventory/import` - Import inventory from Steam JSON
+- `/storage/deposit/{id}` - Deposit items into storage box (preview/confirm)
+- `/storage/withdraw/{id}` - Withdraw items from storage box (preview/confirm)
 - `/settings` - User settings (Steam ID configuration)
 
 ## Database Schema Overview
