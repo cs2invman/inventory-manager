@@ -108,11 +108,21 @@
                                     Modified: {{ box.modificationDate|date('M d, Y') }}
                                 </div>
                             {% endif %}
-                            <div class="flex gap-2">
+                            <div class="flex flex-col gap-2">
                                 <a href="{{ path('inventory_index', {filter: 'box', box_id: box.id}) }}"
-                                   class="flex-1 text-center bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+                                   class="text-center bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
                                     View Contents
                                 </a>
+                                <div class="flex gap-2">
+                                    <a href="{{ path('storage_box_deposit_form', {id: box.id}) }}"
+                                       class="flex-1 text-center bg-green-600 text-white px-2 py-2 rounded text-sm hover:bg-green-700 transition-colors">
+                                        Deposit
+                                    </a>
+                                    <a href="{{ path('storage_box_withdraw_form', {id: box.id}) }}"
+                                       class="flex-1 text-center bg-orange-600 text-white px-2 py-2 rounded text-sm hover:bg-orange-700 transition-colors">
+                                        Withdraw
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     {% endfor %}

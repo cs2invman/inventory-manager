@@ -1,0 +1,117 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Deposit Preview - {{ storageBox.name }} - CS2 Inventory{% endblock %}
+
+{% block body %}
+<main class="w-full py-6 px-8">
+    <!-- Flash Messages -->
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert-{{ label }} mb-4">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-white mb-2">Deposit Preview</h2>
+        <p class="text-gray-400">
+            Review items to deposit into <span class="text-cs2-orange font-semibold">{{ storageBox.name }}</span>
+        </p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="card">
+            <p class="text-sm text-gray-400 mb-1">Items to Deposit</p>
+            <p class="text-3xl font-bold text-green-400">{{ preview.itemsToDeposit|length }}</p>
+        </div>
+        <div class="card">
+            <p class="text-sm text-gray-400 mb-1">Current in Storage</p>
+            <p class="text-3xl font-bold text-white">{{ preview.currentItemCount }}</p>
+        </div>
+        <div class="card">
+            <p class="text-sm text-gray-400 mb-1">After Deposit</p>
+            <p class="text-3xl font-bold text-cs2-orange">{{ preview.newItemCount }}</p>
+        </div>
+    </div>
+
+    {% if preview.itemsToDeposit is empty %}
+        <!-- No Items to Deposit -->
+        <div class="card text-center py-12">
+            <div class="text-6xl mb-4">⚠️</div>
+            <h3 class="text-xl font-semibold text-white mb-2">No Items to Deposit</h3>
+            <p class="text-gray-400 mb-6">
+                No items were detected as deposited. Make sure you:<br>
+                1. Actually deposited items in-game<br>
+                2. Copied the JSON AFTER depositing<br>
+                3. Copied from the correct inventory URL
+            </p>
+            <a href="{{ path('storage_box_deposit_form', {id: storageBox.id}) }}" class="btn-secondary">
+                Try Again
+            </a>
+        </div>
+    {% else %}
+        <!-- Items to Deposit -->
+        <div class="card mb-8">
+            <h3 class="text-xl font-semibold text-white mb-4">Items to be Deposited</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {% for itemUser in preview.itemsToDeposit %}
+                    {% set item = itemUser.item %}
+                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 hover:border-green-500 transition-colors">
+                        <h4 class="font-semibold text-white text-sm line-clamp-2 mb-2">
+                            {{ item.name }}
+                        </h4>
+
+                        {% if itemUser.wearCategory %}
+                            <div class="mb-2">
+                                <span class="inline-block px-2 py-1 text-xs rounded bg-blue-600 text-white">
+                                    {{ itemUser.wearCategory }}
+                                </span>
+                            </div>
+                        {% endif %}
+
+                        {% if itemUser.floatValue %}
+                            <p class="text-xs text-gray-400 mb-1">
+                                Float: {{ itemUser.floatValue|number_format(7) }}
+                            </p>
+                        {% endif %}
+
+                        {% if itemUser.isStattrak %}
+                            <span class="inline-block px-2 py-1 text-xs rounded bg-orange-600 text-white mb-1">
+                                StatTrak™
+                            </span>
+                        {% endif %}
+
+                        {% if itemUser.isSouvenir %}
+                            <span class="inline-block px-2 py-1 text-xs rounded bg-yellow-600 text-white mb-1">
+                                Souvenir
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Confirmation Form -->
+        <form action="{{ path('storage_box_deposit_confirm', {id: storageBox.id}) }}" method="post">
+            <input type="hidden" name="session_key" value="{{ preview.sessionKey }}">
+
+            <div class="alert-info mb-6">
+                <strong>⚠️ Important:</strong> This will move {{ preview.itemsToDeposit|length }} items from your active inventory to "{{ storageBox.name }}".
+                This change will be reflected in the database immediately.
+            </div>
+
+            <div class="flex justify-end gap-4">
+                <a href="{{ path('storage_box_deposit_form', {id: storageBox.id}) }}" class="btn-secondary">
+                    Cancel
+                </a>
+                <button type="submit" class="btn-primary bg-green-600 hover:bg-green-700">
+                    Confirm Deposit
+                </button>
+            </div>
+        </form>
+    {% endif %}
+</main>
+{% endblock %}

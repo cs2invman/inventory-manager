@@ -1,0 +1,142 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Withdraw Items - {{ storageBox.name }} - CS2 Inventory{% endblock %}
+
+{% block body %}
+<main class="w-full py-6 px-8">
+    <!-- Flash Messages -->
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert-{{ label }} mb-4">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-3xl font-bold text-white mb-2">Withdraw Items</h2>
+                <p class="text-gray-400">
+                    Withdraw items from <span class="text-cs2-orange font-semibold">{{ storageBox.name }}</span>
+                </p>
+            </div>
+            <a href="{{ path('inventory_index') }}" class="btn-secondary">
+                Back to Inventory
+            </a>
+        </div>
+    </div>
+
+    <!-- Storage Box Info -->
+    <div class="card mb-8 bg-gradient-to-br from-blue-900/30 to-blue-800/20 border-blue-500/50">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <span class="text-5xl">📦</span>
+                <div>
+                    <h3 class="text-2xl font-bold text-white">{{ storageBox.name }}</h3>
+                    <p class="text-gray-400">Current items: <span class="text-white font-semibold">{{ storageBox.itemCount }}</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions Card -->
+    <div class="card mb-8">
+        <h3 class="text-xl font-semibold text-white mb-4">How to Withdraw Items</h3>
+        <div class="space-y-4 text-gray-300">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">1</span>
+                </div>
+                <div class="ml-4">
+                    <p class="font-semibold text-white">In-Game: Withdraw Items</p>
+                    <p class="text-sm text-gray-400">Open CS2, go to your inventory, open "{{ storageBox.name }}", and withdraw the items you want</p>
+                </div>
+            </div>
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">2</span>
+                </div>
+                <div class="ml-4">
+                    <p class="font-semibold text-white">Fetch Inventory Data</p>
+                    <p class="text-sm text-gray-400 mb-2">Click these links to open your Steam inventory in new tabs:</p>
+                    <div class="bg-gray-900 rounded p-3 font-mono text-xs break-all space-y-2">
+                        <p>
+                            <span class="text-cs2-orange">Tradeable items:</span><br>
+                            <a href="https://steamcommunity.com/inventory/{{ app.user.config.steamId }}/730/2?l=english&count=5000"
+                               target="_blank"
+                               class="text-blue-400 hover:text-blue-300 hover:underline">
+                                https://steamcommunity.com/inventory/{{ app.user.config.steamId }}/730/2?l=english&count=5000
+                            </a>
+                        </p>
+                        <p>
+                            <span class="text-cs2-orange">Trade-locked items:</span><br>
+                            <a href="https://steamcommunity.com/inventory/{{ app.user.config.steamId }}/730/16?l=english&count=5000"
+                               target="_blank"
+                               class="text-blue-400 hover:text-blue-300 hover:underline">
+                                https://steamcommunity.com/inventory/{{ app.user.config.steamId }}/730/16?l=english&count=5000
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <span class="flex items-center justify-center h-8 w-8 rounded-full bg-cs2-orange text-white font-bold">3</span>
+                </div>
+                <div class="ml-4">
+                    <p class="font-semibold text-white">Copy JSON Data</p>
+                    <p class="text-sm text-gray-400">Copy the entire JSON response from each URL and paste it in the corresponding textareas below</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Withdraw Form -->
+    <form action="{{ path('storage_box_withdraw_preview', {id: storageBox.id}) }}" method="post">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Tradeable Items -->
+            <div class="card">
+                <label for="tradeable_json" class="block text-lg font-medium text-white mb-2">
+                    Tradeable Items <span class="text-gray-500 text-sm">(contextid=2)</span>
+                </label>
+                <textarea
+                    name="tradeable_json"
+                    id="tradeable_json"
+                    rows="12"
+                    class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 font-mono text-sm focus:outline-none focus:border-cs2-orange"
+                    placeholder='Paste tradeable inventory JSON here...'
+                ></textarea>
+            </div>
+
+            <!-- Trade-Locked Items -->
+            <div class="card">
+                <label for="tradelocked_json" class="block text-lg font-medium text-white mb-2">
+                    Trade-Locked Items <span class="text-gray-500 text-sm">(contextid=16)</span>
+                </label>
+                <textarea
+                    name="tradelocked_json"
+                    id="tradelocked_json"
+                    rows="12"
+                    class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 font-mono text-sm focus:outline-none focus:border-cs2-orange"
+                    placeholder='Paste trade-locked inventory JSON here...'
+                ></textarea>
+            </div>
+        </div>
+
+        <div class="alert-info mb-6">
+            <strong>Note:</strong> You must provide at least one JSON file. For best accuracy, provide both tradeable and trade-locked inventory JSONs.
+        </div>
+
+        <div class="flex justify-end gap-4">
+            <a href="{{ path('inventory_index') }}" class="btn-secondary">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary">
+                Preview Withdrawal
+            </button>
+        </div>
+    </form>
+</main>
+{% endblock %}
