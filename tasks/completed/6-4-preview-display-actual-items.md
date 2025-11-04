@@ -1,6 +1,6 @@
 # Update Import Preview to Display Actual Items
 
-**Status**: Not Started
+**Status**: Completed
 **Priority**: High
 **Estimated Effort**: Medium
 **Created**: 2025-11-03
@@ -328,24 +328,15 @@ Make it very clear which items are being added vs removed:
 - **Add**: Green "NEW" badge, maybe green border on hover
 - **Remove**: Red "REMOVE" badge, maybe red border on hover
 
-### Performance Consideration
-
-If preview page becomes slow with large inventories:
-1. Add loading spinner while rendering
-2. Consider pagination (show 50 items per page)
-3. Consider lazy loading (load as user scrolls)
-
-These are future enhancements, not required for this task.
-
 ## Dependencies
 
-- **Task 1001**: Reusable item card component must exist
-- **Task 1003**: Comparison logic must be implemented
+- **Task 6-1**: Reusable item card component must exist
+- **Task 6-3**: Comparison logic must be implemented
 
 ## Next Tasks
 
 After this task is complete:
-- **Task 1005**: Add checkbox selection and bulk controls
+- **Task 6-5**: Add checkbox selection and bulk controls
 
 ## Related Files
 

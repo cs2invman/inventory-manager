@@ -1,6 +1,6 @@
 # Add Items-to-Add vs Items-to-Remove Comparison Logic
 
-**Status**: Not Started
+**Status**: Completed
 **Priority**: High
 **Estimated Effort**: Medium
 **Created**: 2025-11-03
@@ -298,20 +298,20 @@ private function createItemUserFromData(Item $item, array $data): ItemUser
 
 ## Acceptance Criteria
 
-- [ ] `getItemsToAdd()` method added to InventoryImportService
-- [ ] `getItemsToRemove()` method added to InventoryImportService
-- [ ] `createItemUserFromData()` method added to create temporary ItemUser objects
-- [ ] `getLatestPriceForItem()` method added to fetch prices
-- [ ] ItemPriceRepository injected in InventoryImportService constructor
-- [ ] `prepareImportPreview()` updated to call helper methods
-- [ ] Items to add are enriched with price data
-- [ ] Items to remove are enriched with price data
-- [ ] Session storage updated to include both item arrays
-- [ ] Correct items identified in add/remove lists (verified via logging)
-- [ ] Price lookups work correctly
-- [ ] Items in storage boxes are not included in comparison
-- [ ] No errors when inventory is empty (first import)
-- [ ] No errors when there are no changes
+- [x] `getItemsToAdd()` method added to InventoryImportService
+- [x] `getItemsToRemove()` method added to InventoryImportService
+- [x] `createItemUserFromData()` method added to create temporary ItemUser objects
+- [x] `getLatestPriceForItem()` method added to fetch prices
+- [x] ItemPriceRepository injected in InventoryImportService constructor
+- [x] `prepareImportPreview()` updated to call helper methods
+- [x] Items to add are enriched with price data
+- [x] Items to remove are enriched with price data
+- [x] Session storage updated to include both item arrays
+- [x] Correct items identified in add/remove lists (verified via logging)
+- [x] Price lookups work correctly
+- [x] Items in storage boxes are not included in comparison
+- [x] No errors when inventory is empty (first import)
+- [x] No errors when there are no changes
 
 ## Notes & Considerations
 
@@ -336,7 +336,7 @@ If price lookups become a bottleneck with large inventories, consider:
 ## Next Tasks
 
 After this task is complete:
-- **Task 1004**: Update ImportPreview DTO and display actual items in preview
+- **Task 6-4**: Update ImportPreview DTO and display actual items in preview
 
 ## Related Files
 

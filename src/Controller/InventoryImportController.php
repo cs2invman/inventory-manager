@@ -117,7 +117,7 @@ class InventoryImportController extends AbstractController
                 }
             }
 
-            return $this->redirectToRoute('app_dashboard');
+            return $this->redirectToRoute('inventory_index');
         } catch (\Exception $e) {
             $this->addFlash('error', 'Import failed: ' . $e->getMessage());
             return $this->redirectToRoute('inventory_import_form');

@@ -5,8 +5,10 @@ namespace App\Service;
 use App\DTO\ImportPreview;
 use App\DTO\ImportResult;
 use App\Entity\Item;
+use App\Entity\ItemPrice;
 use App\Entity\ItemUser;
 use App\Entity\User;
+use App\Repository\ItemPriceRepository;
 use App\Repository\ItemRepository;
 use App\Repository\ItemUserRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,6 +23,7 @@ class InventoryImportService
         private EntityManagerInterface $entityManager,
         private ItemRepository $itemRepository,
         private ItemUserRepository $itemUserRepository,
+        private ItemPriceRepository $itemPriceRepository,
         private RequestStack $requestStack,
         private LoggerInterface $logger,
         private StorageBoxService $storageBoxService
@@ -104,19 +107,86 @@ class InventoryImportService
         // Get current inventory for comparison
         $currentInventory = $this->itemUserRepository->findUserInventory($user->getId());
 
-        // Generate preview statistics
-        $stats = $this->generatePreviewStats($mappedItems, $currentInventory);
+        // Get actual items to add/remove (not just counts)
+        $itemsToAdd = $this->getItemsToAdd($mappedItems, $currentInventory);
+        $itemsToRemove = $this->getItemsToRemove($mappedItems, $currentInventory);
 
-        // Store parsed data in session (including storage boxes)
-        $sessionKey = $this->storeInSession($mappedItems, $storageBoxesData);
+        // Enrich items to add with price data
+        $itemsToAddData = [];
+        foreach ($itemsToAdd as $mappedItem) {
+            $item = $mappedItem['item'];
+            $data = $mappedItem['data'];
+
+            // Look up latest price for this item
+            $latestPrice = $this->getLatestPriceForItem($item);
+
+            // Enrich stickers and keychain with prices
+            $enrichedStickers = $this->enrichStickersWithPrices($data['stickers'] ?? null);
+            $enrichedKeychain = $this->enrichKeychainWithPrice($data['keychain'] ?? null);
+
+            // Calculate total price including stickers and keychain
+            $basePrice = $latestPrice?->getMedianPrice() ?? 0;
+            $stickerPrice = array_sum(array_column($enrichedStickers, 'price'));
+            $keychainPrice = $enrichedKeychain['price'] ?? 0;
+            $totalPrice = $basePrice + $stickerPrice + $keychainPrice;
+
+            $itemsToAddData[] = [
+                'itemUser' => $this->createItemUserFromData($item, $data), // temporary object for display
+                'item' => $item,
+                'price' => $latestPrice,
+                'priceValue' => $totalPrice,
+                'stickers' => $enrichedStickers,
+                'keychain' => $enrichedKeychain,
+                'assetId' => $data['asset_id'],
+            ];
+        }
+
+        // Enrich items to remove with price data
+        $itemsToRemoveData = [];
+        foreach ($itemsToRemove as $itemUser) {
+            $item = $itemUser->getItem();
+
+            // Look up latest price
+            $latestPrice = $this->getLatestPriceForItem($item);
+
+            // Enrich stickers and keychain with prices
+            $enrichedStickers = $this->enrichStickersWithPrices($itemUser->getStickers());
+            $enrichedKeychain = $this->enrichKeychainWithPrice($itemUser->getKeychain());
+
+            // Calculate total price including stickers and keychain
+            $basePrice = $latestPrice?->getMedianPrice() ?? 0;
+            $stickerPrice = array_sum(array_column($enrichedStickers, 'price'));
+            $keychainPrice = $enrichedKeychain['price'] ?? 0;
+            $totalPrice = $basePrice + $stickerPrice + $keychainPrice;
+
+            $itemsToRemoveData[] = [
+                'itemUser' => $itemUser,
+                'item' => $item,
+                'price' => $latestPrice,
+                'priceValue' => $totalPrice,
+                'stickers' => $enrichedStickers,
+                'keychain' => $enrichedKeychain,
+                'assetId' => $itemUser->getAssetId(),
+            ];
+        }
+
+        // Log comparison results for debugging
+        $this->logger->info('Import preview comparison results', [
+            'total_items_in_import' => count($mappedItems),
+            'items_to_add_count' => count($itemsToAddData),
+            'items_to_remove_count' => count($itemsToRemoveData),
+            'current_inventory_count' => count($currentInventory),
+        ]);
+
+        // Store parsed data in session (including storage boxes and enriched item data)
+        $sessionKey = $this->storeInSession($mappedItems, $storageBoxesData, $itemsToAddData, $itemsToRemoveData);
 
         return new ImportPreview(
             totalItems: count($mappedItems),
-            itemsToAdd: $stats['items_to_add'],
-            itemsToRemove: $stats['items_to_remove'],
-            statsByRarity: $stats['by_rarity'],
-            statsByType: $stats['by_type'],
-            notableItems: $stats['notable_items'],
+            itemsToAdd: count($itemsToAddData),
+            itemsToRemove: count($itemsToRemoveData),
+            itemsToAddData: $itemsToAddData,
+            itemsToRemoveData: $itemsToRemoveData,
             unmatchedItems: $unmatchedItems,
             errors: $errors,
             sessionKey: $sessionKey,
@@ -542,63 +612,75 @@ class InventoryImportService
     }
 
     /**
-     * Generate statistics for preview
+     * Get items that will be added (exist in new import but not in current inventory)
      */
-    private function generatePreviewStats(array $mappedItems, array $currentInventory): array
+    private function getItemsToAdd(array $mappedItems, array $currentInventory): array
     {
-        $byRarity = [];
-        $byType = [];
-        $notableItems = [];
-
-        foreach ($mappedItems as $mappedItem) {
-            $item = $mappedItem['item'];
-
-            // Count by rarity
-            $rarity = $item->getRarity();
-            $byRarity[$rarity] = ($byRarity[$rarity] ?? 0) + 1;
-
-            // Count by type
-            $type = $item->getType();
-            $byType[$type] = ($byType[$type] ?? 0) + 1;
-
-            // Identify notable items (knives, gloves, high rarity)
-            if ($type === 'Knife' || $type === 'Gloves' || in_array($rarity, ['Covert', 'Extraordinary', 'Master'])) {
-                $notableItems[] = [
-                    'name' => $item->getName(),
-                    'type' => $type,
-                    'rarity' => $rarity,
-                    'image_url' => $item->getImageUrl(),
-                ];
-            }
-        }
-
-        // Calculate items to add/remove
         $newAssetIds = array_map(fn($m) => $m['data']['asset_id'], $mappedItems);
         $currentAssetIds = array_map(fn($item) => $item->getAssetId(), $currentInventory);
 
-        $itemsToAdd = count(array_diff($newAssetIds, $currentAssetIds));
-        $itemsToRemove = count($currentInventory); // We're replacing all
+        $assetIdsToAdd = array_diff($newAssetIds, $currentAssetIds);
 
-        return [
-            'by_rarity' => $byRarity,
-            'by_type' => $byType,
-            'notable_items' => $notableItems,
-            'items_to_add' => $itemsToAdd,
-            'items_to_remove' => $itemsToRemove,
-        ];
+        // Return full mapped items that are new
+        return array_filter($mappedItems, fn($m) => in_array($m['data']['asset_id'], $assetIdsToAdd));
     }
+
+    /**
+     * Get items that will be removed (exist in current inventory but not in new import)
+     */
+    private function getItemsToRemove(array $mappedItems, array $currentInventory): array
+    {
+        $newAssetIds = array_map(fn($m) => $m['data']['asset_id'], $mappedItems);
+        $currentAssetIds = array_map(fn($item) => $item->getAssetId(), $currentInventory);
+
+        $assetIdsToRemove = array_diff($currentAssetIds, $newAssetIds);
+
+        // Return current ItemUser entities that are no longer present
+        return array_filter($currentInventory, fn($item) => in_array($item->getAssetId(), $assetIdsToRemove));
+    }
+
+    /**
+     * Create temporary ItemUser object from parsed data (not persisted to database)
+     */
+    private function createItemUserFromData(Item $item, array $data): ItemUser
+    {
+        $itemUser = new ItemUser();
+        $itemUser->setItem($item);
+        $itemUser->setAssetId($data['asset_id']);
+        $itemUser->setFloatValue($data['float_value'] ?? null);
+        $itemUser->setPatternIndex($data['pattern_index'] ?? null);
+        $itemUser->setIsStattrak($data['is_stattrak'] ?? false);
+        $itemUser->setIsSouvenir($data['is_souvenir'] ?? false);
+        $itemUser->setStickers($data['stickers'] ?? null);
+        $itemUser->setKeychain($data['keychain'] ?? null);
+        $itemUser->setNameTag($data['name_tag'] ?? null);
+
+        // Don't persist - this is just for preview display
+        return $itemUser;
+    }
+
+    /**
+     * Get the latest price for an item
+     */
+    private function getLatestPriceForItem(Item $item): ?ItemPrice
+    {
+        return $this->itemPriceRepository->findLatestPriceForItem($item->getId());
+    }
+
 
     /**
      * Store mapped items in session
      */
-    private function storeInSession(array $mappedItems, array $storageBoxesData): string
+    private function storeInSession(array $mappedItems, array $storageBoxesData, array $itemsToAddData, array $itemsToRemoveData): string
     {
         $session = $this->requestStack->getSession();
         $sessionKey = self::SESSION_PREFIX . bin2hex(random_bytes(16));
 
         $serializableData = [
             'items' => [],
-            'storage_boxes' => $storageBoxesData
+            'storage_boxes' => $storageBoxesData,
+            'items_to_add' => $itemsToAddData,
+            'items_to_remove' => $itemsToRemoveData,
         ];
 
         foreach ($mappedItems as $mappedItem) {
@@ -708,5 +790,100 @@ class InventoryImportService
         }
 
         return null;
+    }
+
+    /**
+     * Enrich sticker data with price information
+     */
+    private function enrichStickersWithPrices(?array $stickers): array
+    {
+        if ($stickers === null || empty($stickers)) {
+            return [];
+        }
+
+        $enrichedStickers = [];
+
+        foreach ($stickers as $sticker) {
+            $stickerName = $sticker['name'] ?? null;
+            $stickerType = $sticker['type'] ?? 'Sticker';
+
+            if ($stickerName === null) {
+                continue;
+            }
+
+            // Construct market hash name (e.g., "Sticker | Name" or "Patch | Name")
+            $marketHashName = $stickerType . ' | ' . $stickerName;
+
+            // Look up item in database
+            $stickerItem = $this->itemRepository->findByHashName($marketHashName);
+
+            if ($stickerItem !== null) {
+                $latestPrice = $this->getLatestPriceForItem($stickerItem);
+
+                $enrichedStickers[] = [
+                    'name' => $stickerName,
+                    'type' => $stickerType,
+                    'slot' => $sticker['slot'] ?? null,
+                    'wear' => $sticker['wear'] ?? null,
+                    'image_url' => $sticker['image_url'] ?? null,
+                    'hash_name' => $marketHashName,
+                    'price' => $latestPrice?->getMedianPrice() ?? 0,
+                ];
+            } else {
+                // If not found, still include but with no price
+                $enrichedStickers[] = [
+                    'name' => $stickerName,
+                    'type' => $stickerType,
+                    'slot' => $sticker['slot'] ?? null,
+                    'wear' => $sticker['wear'] ?? null,
+                    'image_url' => $sticker['image_url'] ?? null,
+                    'hash_name' => $marketHashName,
+                    'price' => 0,
+                ];
+            }
+        }
+
+        return $enrichedStickers;
+    }
+
+    /**
+     * Enrich keychain data with price information
+     */
+    private function enrichKeychainWithPrice(?array $keychain): ?array
+    {
+        if ($keychain === null || empty($keychain)) {
+            return null;
+        }
+
+        $keychainName = $keychain['name'] ?? null;
+
+        if ($keychainName === null) {
+            return null;
+        }
+
+        // Construct market hash name (e.g., "Charm | Name")
+        $marketHashName = 'Charm | ' . $keychainName;
+
+        // Look up item in database
+        $keychainItem = $this->itemRepository->findByHashName($marketHashName);
+
+        if ($keychainItem !== null) {
+            $latestPrice = $this->getLatestPriceForItem($keychainItem);
+
+            return [
+                'name' => $keychainName,
+                'image_url' => $keychain['image_url'] ?? null,
+                'hash_name' => $marketHashName,
+                'price' => $latestPrice?->getMedianPrice() ?? 0,
+            ];
+        } else {
+            // If not found, still include but with no price
+            return [
+                'name' => $keychainName,
+                'image_url' => $keychain['image_url'] ?? null,
+                'hash_name' => $marketHashName,
+                'price' => 0,
+            ];
+        }
     }
 }

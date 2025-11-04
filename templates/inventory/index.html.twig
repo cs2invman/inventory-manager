@@ -5,6 +5,15 @@
 {% block body %}
     <!-- Main Content -->
     <main class="w-full py-6 px-8">
+        <!-- Flash Messages -->
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert-{{ label }} mb-4">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endfor %}
+
         <!-- Page Header with Total Value -->
         <div class="mb-8">
             <div class="flex items-center justify-between mb-4">
@@ -97,7 +106,7 @@
                                         </span>
                                     {% else %}
                                         <span class="bg-yellow-600 text-white px-2 py-1 rounded text-sm font-bold" title="Not synced! Import shows {{ box.reportedCount }}, but database has {{ box.actualCount }}">
-                                            {{ box.reportedCount }} → {{ box.actualCount }}
+                                            {{ box.actualCount }} / {{ box.reportedCount }}
                                         </span>
                                     {% endif %}
                                 </div>

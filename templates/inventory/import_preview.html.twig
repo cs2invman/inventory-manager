@@ -5,6 +5,15 @@
 {% block body %}
 <!-- Main Content -->
 <main class="w-full py-6 px-8">
+        <!-- Flash Messages -->
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert-{{ label }} mb-4">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endfor %}
+
         <!-- Page Header -->
         <div class="mb-8">
             <h2 class="text-3xl font-bold text-white mb-2">Preview Your Import</h2>
@@ -69,76 +78,84 @@
             </div>
         </div>
 
-        <!-- Statistics Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <!-- By Rarity -->
-            <div class="card">
-                <h3 class="text-xl font-semibold text-white mb-4">Items by Rarity</h3>
-                {% if preview.statsByRarity is empty %}
-                    <p class="text-gray-400 text-center py-8">No rarity data available</p>
-                {% else %}
-                    <div class="space-y-3">
-                        {% for rarity, count in preview.statsByRarity %}
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-300">{{ rarity }}</span>
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-32 bg-gray-700 rounded-full h-2">
-                                        <div class="bg-cs2-orange h-2 rounded-full" style="width: {{ (count / preview.totalItems * 100)|round }}%"></div>
-                                    </div>
-                                    <span class="text-white font-semibold w-12 text-right">{{ count }}</span>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
+        <!-- Items to Add Section -->
+        {% if preview.itemsToAddData is not empty %}
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-white">Items to Add</h2>
+                    <p class="text-gray-400">{{ preview.itemsToAdd }} new items</p>
+                </div>
 
-            <!-- By Type -->
-            <div class="card">
-                <h3 class="text-xl font-semibold text-white mb-4">Items by Type</h3>
-                {% if preview.statsByType is empty %}
-                    <p class="text-gray-400 text-center py-8">No type data available</p>
-                {% else %}
-                    <div class="space-y-3">
-                        {% for type, count in preview.statsByType %}
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-300">{{ type }}</span>
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-32 bg-gray-700 rounded-full h-2">
-                                        <div class="bg-white h-2 rounded-full" style="width: {{ (count / preview.totalItems * 100)|round }}%"></div>
-                                    </div>
-                                    <span class="text-white font-semibold w-12 text-right">{{ count }}</span>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Notable Items -->
-        {% if preview.notableItems is not empty %}
-            <div class="card mb-8">
-                <h3 class="text-xl font-semibold text-white mb-4">Notable Items (Knives, Gloves, High Rarity)</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {% for item in preview.notableItems|slice(0, 12) %}
-                        <div class="bg-gray-900 rounded-lg p-4 flex items-center space-x-3 border border-gray-700 hover:border-cs2-orange transition-colors">
-                            <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-16 h-16 object-contain">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-white font-medium text-sm truncate">{{ item.name }}</p>
-                                <div class="flex items-center space-x-2 mt-1">
-                                    <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">{{ item.type }}</span>
-                                    <span class="text-xs bg-cs2-orange text-white px-2 py-1 rounded">{{ item.rarity }}</span>
-                                </div>
-                            </div>
-                        </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {% for itemData in preview.itemsToAddData %}
+                        {% embed 'components/item_card.html.twig' with {
+                            itemUser: itemData.itemUser,
+                            item: itemData.item,
+                            latestPrice: itemData.price,
+                            priceValue: itemData.priceValue,
+                            stickersWithPrices: itemData.stickers,
+                            keychainWithPrice: itemData.keychain,
+                            mode: 'display'
+                        } %}
+                            {% block badges %}
+                                <span class="absolute top-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
+                                    NEW
+                                </span>
+                            {% endblock %}
+                        {% endembed %}
                     {% endfor %}
                 </div>
-                {% if preview.notableItems|length > 12 %}
-                    <p class="text-gray-400 text-sm mt-4 text-center">
-                        And {{ preview.notableItems|length - 12 }} more notable items...
-                    </p>
-                {% endif %}
+            </div>
+        {% else %}
+            <div class="card mb-8 bg-gray-800 border-gray-700">
+                <p class="text-center text-gray-400">No new items to add</p>
+            </div>
+        {% endif %}
+
+        <!-- Items to Remove Section -->
+        {% if preview.itemsToRemoveData is not empty %}
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-white">Items to Remove</h2>
+                    <p class="text-gray-400">{{ preview.itemsToRemove }} items will be removed</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {% for itemData in preview.itemsToRemoveData %}
+                        {% embed 'components/item_card.html.twig' with {
+                            itemUser: itemData.itemUser,
+                            item: itemData.item,
+                            latestPrice: itemData.price,
+                            priceValue: itemData.priceValue,
+                            stickersWithPrices: itemData.stickers,
+                            keychainWithPrice: itemData.keychain,
+                            mode: 'display'
+                        } %}
+                            {% block badges %}
+                                <span class="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
+                                    REMOVE
+                                </span>
+                            {% endblock %}
+                        {% endembed %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <div class="card mb-8 bg-gray-800 border-gray-700">
+                <p class="text-center text-gray-400">No items to remove</p>
+            </div>
+        {% endif %}
+
+        <!-- No Changes Detected -->
+        {% if preview.itemsToAddData is empty and preview.itemsToRemoveData is empty %}
+            <div class="card mb-8 bg-blue-900 border-blue-700">
+                <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-blue-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="text-xl font-semibold text-blue-100 mb-2">No Changes Detected</h3>
+                    <p class="text-blue-200">Your inventory is already up to date with this import.</p>
+                </div>
             </div>
         {% endif %}
 
