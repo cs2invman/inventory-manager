@@ -28,6 +28,9 @@ class StorageBox
     private int $itemCount = 0;
 
     #[ORM\Column(nullable: true)]
+    private ?int $reportedCount = null;
+
+    #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $modificationDate = null;
 
     #[ORM\Column]
@@ -94,6 +97,17 @@ class StorageBox
     public function setItemCount(int $itemCount): static
     {
         $this->itemCount = $itemCount;
+        return $this;
+    }
+
+    public function getReportedCount(): ?int
+    {
+        return $this->reportedCount;
+    }
+
+    public function setReportedCount(?int $reportedCount): static
+    {
+        $this->reportedCount = $reportedCount;
         return $this;
     }
 

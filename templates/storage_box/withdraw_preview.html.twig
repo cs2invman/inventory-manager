@@ -58,38 +58,23 @@
             <h3 class="text-xl font-semibold text-white mb-4">Items to be Withdrawn</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {% for itemUser in preview.itemsToWithdraw %}
-                    {% set item = itemUser.item %}
-                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 hover:border-orange-500 transition-colors">
-                        <h4 class="font-semibold text-white text-sm line-clamp-2 mb-2">
-                            {{ item.name }}
-                        </h4>
-
-                        {% if itemUser.wearCategory %}
-                            <div class="mb-2">
-                                <span class="inline-block px-2 py-1 text-xs rounded bg-blue-600 text-white">
-                                    {{ itemUser.wearCategory }}
+                    {% embed 'components/item_card.html.twig' with {
+                        itemUser: itemUser,
+                        item: itemUser.item,
+                        latestPrice: null,
+                        priceValue: null,
+                        stickersWithPrices: null,
+                        keychainWithPrice: null,
+                        mode: 'display'
+                    } %}
+                        {% block badges %}
+                            <div class="absolute top-2 left-2 z-10">
+                                <span class="inline-flex items-center gap-1 bg-orange-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
+                                    TO WITHDRAW
                                 </span>
                             </div>
-                        {% endif %}
-
-                        {% if itemUser.floatValue %}
-                            <p class="text-xs text-gray-400 mb-1">
-                                Float: {{ itemUser.floatValue|number_format(7) }}
-                            </p>
-                        {% endif %}
-
-                        {% if itemUser.isStattrak %}
-                            <span class="inline-block px-2 py-1 text-xs rounded bg-orange-600 text-white mb-1">
-                                StatTrak™
-                            </span>
-                        {% endif %}
-
-                        {% if itemUser.isSouvenir %}
-                            <span class="inline-block px-2 py-1 text-xs rounded bg-yellow-600 text-white mb-1">
-                                Souvenir
-                            </span>
-                        {% endif %}
-                    </div>
+                        {% endblock %}
+                    {% endembed %}
                 {% endfor %}
             </div>
         </div>

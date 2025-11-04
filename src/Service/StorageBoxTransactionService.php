@@ -228,10 +228,9 @@ class StorageBoxTransactionService
                 $itemsMoved++;
             }
 
-            // Update storage box item count
-            $actualCount = $this->itemUserRepository->count(['storageBox' => $box]);
-            $box->setItemCount($actualCount);
-            $this->entityManager->persist($box);
+            // Note: We don't update itemCount or reportedCount here
+            // reportedCount is set only during import and never changes
+            // actualCount is computed on-demand by counting database items
 
             $this->entityManager->flush();
             $this->entityManager->commit();
@@ -307,10 +306,9 @@ class StorageBoxTransactionService
                 $itemsMoved++;
             }
 
-            // Update storage box item count
-            $actualCount = $this->itemUserRepository->count(['storageBox' => $box]);
-            $box->setItemCount($actualCount);
-            $this->entityManager->persist($box);
+            // Note: We don't update itemCount or reportedCount here
+            // reportedCount is set only during import and never changes
+            // actualCount is computed on-demand by counting database items
 
             $this->entityManager->flush();
             $this->entityManager->commit();
@@ -406,7 +404,7 @@ class StorageBoxTransactionService
             }
 
             // Try property match (for assetId changes)
-            if ($item->getItem()->getMarketHashName() === $snapshotHashName) {
+            if ($item->getItem()->getHashName() === $snapshotHashName) {
                 $floatMatch = ($snapshotFloat === null || abs((float)$item->getFloatValue() - $snapshotFloat) < 0.0000001);
                 $patternMatch = ($snapshotPattern === null || $item->getPatternIndex() === $snapshotPattern);
 

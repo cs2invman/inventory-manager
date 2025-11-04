@@ -1,6 +1,6 @@
 # Update Storage Deposit/Withdraw Templates to Use Item Card Component
 
-**Status**: Not Started
+**Status**: Completed
 **Priority**: Medium
 **Estimated Effort**: Small
 **Created**: 2025-11-03
@@ -191,12 +191,12 @@ These are added via the `badges` block when embedding the component.
 
 ## Dependencies
 
-- **Task 1001**: Reusable item card component must be created first
+- **Task 6-1**: Reusable item card component must be created first
 
 ## Next Tasks
 
 After this task is complete:
-- **Task 1003**: Add comparison logic to InventoryImportService
+- **Task 6-3**: Add comparison logic to InventoryImportService
 
 ## Related Files
 

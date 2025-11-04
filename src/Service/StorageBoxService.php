@@ -169,6 +169,12 @@ class StorageBoxService
             // Update fields (only for Steam boxes - manual boxes are never touched)
             $storageBox->setName($data['name']);
             $storageBox->setItemCount($data['item_count']);
+
+            // Set reportedCount ONLY on first import (never update it after)
+            if ($storageBox->getReportedCount() === null) {
+                $storageBox->setReportedCount($data['item_count']);
+            }
+
             if ($data['modification_date'] !== null) {
                 $storageBox->setModificationDate($data['modification_date']);
             }

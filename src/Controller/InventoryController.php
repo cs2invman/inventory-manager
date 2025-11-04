@@ -47,9 +47,9 @@ class InventoryController extends AbstractController
                 'entity' => $box,
                 'id' => $box->getId(),
                 'name' => $box->getName(),
-                'reportedCount' => $box->getItemCount(),
+                'reportedCount' => $box->getReportedCount() ?? $box->getItemCount(), // Use reportedCount if available, fallback to itemCount
                 'actualCount' => $actualItemCount,
-                'isSynced' => ($box->getItemCount() === $actualItemCount),
+                'isSynced' => (($box->getReportedCount() ?? $box->getItemCount()) === $actualItemCount),
                 'modificationDate' => $box->getModificationDate(),
             ];
         }
