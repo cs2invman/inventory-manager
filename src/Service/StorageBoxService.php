@@ -170,10 +170,10 @@ class StorageBoxService
             $storageBox->setName($data['name']);
             $storageBox->setItemCount($data['item_count']);
 
-            // Set reportedCount ONLY on first import (never update it after)
-            if ($storageBox->getReportedCount() === null) {
-                $storageBox->setReportedCount($data['item_count']);
-            }
+            // ALWAYS update reportedCount from Steam during imports
+            // This is the "source of truth" from Steam's API
+            // Deposit/withdraw operations never touch this field
+            $storageBox->setReportedCount($data['item_count']);
 
             if ($data['modification_date'] !== null) {
                 $storageBox->setModificationDate($data['modification_date']);

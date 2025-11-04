@@ -46,7 +46,11 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 
 - Belongs to `User`
 - Two types: Steam-imported (with assetId) and manual (without assetId)
-- Fields: assetId (nullable), name, itemCount, modificationDate
+- Fields: assetId (nullable), name, itemCount, reportedCount, modificationDate
+- `reportedCount`: Steam's reported item count, ALWAYS updated during inventory imports, NEVER touched by deposit/withdraw
+- `itemCount`: Kept in sync with reportedCount during imports, NEVER touched by deposit/withdraw
+- `actualCount`: Computed on-demand from database (not a field), used to detect sync issues
+- Compare reportedCount vs actualCount to see if database is out of sync with Steam
 - Steam boxes sync automatically during inventory imports
 - Manual boxes are for tracking items lent to friends, never modified by imports
 - Helper methods: `isManualBox()`, `isSteamBox()`
@@ -89,6 +93,7 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 
 - Creates and manages storage boxes
 - Syncs Steam storage boxes during import (by assetId)
+- Sets `reportedCount` only on first import, never updates it after
 - Creates manual storage boxes for friend lending tracking
 - Manual boxes are never touched by import process
 
@@ -98,6 +103,7 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 - Compares inventory snapshots to detect item movements
 - Preview/confirm pattern: stores transaction in session between steps
 - Matches items by assetId or properties (handles assetId changes during withdrawals)
+- Does NOT update `itemCount` or `reportedCount` on transactions
 - Methods: `prepareDepositPreview()`, `prepareWithdrawPreview()`, `executeDeposit()`, `executeWithdraw()`
 
 **UserConfigService** (`src/Service/UserConfigService.php`)
