@@ -88,20 +88,45 @@ class InventoryImportController extends AbstractController
     public function confirm(Request $request): Response
     {
         $sessionKey = $request->request->get('session_key');
+        $selectedItems = $request->request->all('selected_items');
 
         if (empty($sessionKey)) {
             $this->addFlash('error', 'Invalid session data. Please try importing again.');
             return $this->redirectToRoute('inventory_import_form');
         }
 
+        // Validate that at least some items are selected
+        if (empty($selectedItems)) {
+            $this->addFlash('error', 'No items selected for import.');
+            return $this->redirectToRoute('inventory_import_form');
+        }
+
+        // Separate add vs remove IDs based on prefix
+        $selectedAddIds = [];
+        $selectedRemoveIds = [];
+
+        foreach ($selectedItems as $itemId) {
+            if (str_starts_with($itemId, 'add-')) {
+                $selectedAddIds[] = $itemId;
+            } elseif (str_starts_with($itemId, 'remove-')) {
+                $selectedRemoveIds[] = $itemId;
+            }
+        }
+
         try {
             $user = $this->getUser();
-            $result = $this->importService->executeImport($user, $sessionKey);
+            $result = $this->importService->executeImport(
+                $user,
+                $sessionKey,
+                $selectedAddIds,
+                $selectedRemoveIds
+            );
 
             if ($result->isSuccess()) {
                 $this->addFlash('success', sprintf(
-                    'Successfully imported %d items into your inventory!',
-                    $result->successCount
+                    'Import complete! Added %d items, removed %d items.',
+                    $result->addedCount,
+                    $result->removedCount
                 ));
 
                 if ($result->hasSkippedItems()) {

@@ -5,7 +5,7 @@
 **Estimated Effort**: Medium
 **Created**: 2025-11-03
 **Part of**: Selective Inventory Import (6/6)
-**Depends on**: Task 1005 (Checkbox Selection Controls)
+**Depends on**: Task 6-5 (Checkbox Selection Controls)
 
 ## Overview
 
@@ -443,17 +443,11 @@ Even with 500+ items:
 
 ## Dependencies
 
-- **Task 1005**: Checkbox selection must be implemented
+- **Task 6-5**: Checkbox selection must be implemented
 
 ## Next Tasks
 
 After this task is complete, the selective inventory import feature is **COMPLETE**! 🎉
-
-Optional future enhancements:
-- Add import history tracking
-- Add "undo" feature for imports
-- Add conflict resolution for updated items
-- Add pagination for large inventories
 
 ## Related Files
 

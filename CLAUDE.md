@@ -85,7 +85,7 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 - Parses Steam inventory JSON exports (including storage boxes)
 - Matches items by classId to local database
 - Extracts: float values, stickers, keychains, StatTrak counters
-- Creates preview before final import
+- Preview workflow: compares new import vs current inventory (by assetId), enriches items with prices
 - **Import behavior**: Only deletes items with `storageBox = null`; items in storage boxes are preserved
 - Calculates market values including sticker/keychain prices
 
@@ -161,7 +161,7 @@ php bin/console app:steam:sync-items      # Sync JSON to database
 1. User navigates to `/inventory/import`
 2. If no Steam ID configured, redirect to `/settings`
 3. User uploads Steam inventory JSON file
-4. System shows preview with matched items and storage boxes
+4. Preview shows items to add (NEW badge) vs items to remove (REMOVE badge) with prices
 5. User confirms import:
    - Storage boxes synced (Steam boxes only, manual boxes untouched)
    - Only main inventory items (`storageBox = null`) deleted/replaced

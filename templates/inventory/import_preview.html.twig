@@ -2,6 +2,11 @@
 
 {% block title %}Preview Import - CS2 Inventory{% endblock %}
 
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('js/import-preview.js') }}" defer></script>
+{% endblock %}
+
 {% block body %}
 <!-- Main Content -->
 <main class="w-full py-6 px-8">
@@ -61,13 +66,13 @@
             <div class="card">
                 <div class="text-center">
                     <p class="text-sm font-medium text-gray-400 mb-2">Items to Add</p>
-                    <p class="text-4xl font-bold text-green-400">{{ preview.itemsToAdd }}</p>
+                    <p class="text-4xl font-bold text-green-400" id="items-to-add-count">{{ preview.itemsToAdd }}</p>
                 </div>
             </div>
             <div class="card">
                 <div class="text-center">
                     <p class="text-sm font-medium text-gray-400 mb-2">Existing Items to Remove</p>
-                    <p class="text-4xl font-bold text-red-400">{{ preview.itemsToRemove }}</p>
+                    <p class="text-4xl font-bold text-red-400" id="items-to-remove-count">{{ preview.itemsToRemove }}</p>
                 </div>
             </div>
             <div class="card">
@@ -81,12 +86,35 @@
         <!-- Items to Add Section -->
         {% if preview.itemsToAddData is not empty %}
             <div class="mb-8">
-                <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
                     <h2 class="text-2xl font-bold text-white">Items to Add</h2>
-                    <p class="text-gray-400">{{ preview.itemsToAdd }} new items</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" id="select-all-add" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm">
+                            Select All
+                        </button>
+                        <button type="button" id="deselect-all-add" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm">
+                            Deselect All
+                        </button>
+
+                        <div class="relative" x-data="{ open: false }">
+                            <button type="button" @click="open = !open" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm">
+                                Bulk Select ▾
+                            </button>
+                            <div x-show="open" @click.outside="open = false" class="absolute right-0 mt-2 w-48 bg-gray-800 rounded shadow-lg z-10 border border-gray-700">
+                                <button type="button" data-section="add" data-filter="rarity:Covert" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Covert items</button>
+                                <button type="button" data-section="add" data-filter="rarity:Classified" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Classified items</button>
+                                <button type="button" data-section="add" data-filter="type:Knife" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Knives</button>
+                                <button type="button" data-section="add" data-filter="type:Gloves" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Gloves</button>
+                                <button type="button" data-section="add" data-filter="price:>10" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Items > $10</button>
+                                <button type="button" data-section="add" data-filter="price:>100" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Items > $100</button>
+                            </div>
+                        </div>
+
+                        <input type="text" id="search-add" placeholder="Search items..." class="px-3 py-2 bg-gray-700 text-white rounded text-sm w-48 focus:outline-none focus:ring-2 focus:ring-cs2-orange">
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div id="items-to-add-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {% for itemData in preview.itemsToAddData %}
                         {% embed 'components/item_card.html.twig' with {
                             itemUser: itemData.itemUser,
@@ -95,10 +123,14 @@
                             priceValue: itemData.priceValue,
                             stickersWithPrices: itemData.stickers,
                             keychainWithPrice: itemData.keychain,
-                            mode: 'display'
+                            mode: 'with-checkbox',
+                            checked: true,
+                            itemId: 'add-' ~ itemData.assetId,
+                            rarity: itemData.item.rarity,
+                            type: itemData.item.type
                         } %}
                             {% block badges %}
-                                <span class="absolute top-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
+                                <span class="absolute top-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg z-10">
                                     NEW
                                 </span>
                             {% endblock %}
@@ -115,12 +147,35 @@
         <!-- Items to Remove Section -->
         {% if preview.itemsToRemoveData is not empty %}
             <div class="mb-8">
-                <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
                     <h2 class="text-2xl font-bold text-white">Items to Remove</h2>
-                    <p class="text-gray-400">{{ preview.itemsToRemove }} items will be removed</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" id="select-all-remove" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm">
+                            Select All
+                        </button>
+                        <button type="button" id="deselect-all-remove" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm">
+                            Deselect All
+                        </button>
+
+                        <div class="relative" x-data="{ open: false }">
+                            <button type="button" @click="open = !open" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm">
+                                Bulk Select ▾
+                            </button>
+                            <div x-show="open" @click.outside="open = false" class="absolute right-0 mt-2 w-48 bg-gray-800 rounded shadow-lg z-10 border border-gray-700">
+                                <button type="button" data-section="remove" data-filter="rarity:Covert" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Covert items</button>
+                                <button type="button" data-section="remove" data-filter="rarity:Classified" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Classified items</button>
+                                <button type="button" data-section="remove" data-filter="type:Knife" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Knives</button>
+                                <button type="button" data-section="remove" data-filter="type:Gloves" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Gloves</button>
+                                <button type="button" data-section="remove" data-filter="price:>10" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Items > $10</button>
+                                <button type="button" data-section="remove" data-filter="price:>100" class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm">Items > $100</button>
+                            </div>
+                        </div>
+
+                        <input type="text" id="search-remove" placeholder="Search items..." class="px-3 py-2 bg-gray-700 text-white rounded text-sm w-48 focus:outline-none focus:ring-2 focus:ring-cs2-orange">
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div id="items-to-remove-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {% for itemData in preview.itemsToRemoveData %}
                         {% embed 'components/item_card.html.twig' with {
                             itemUser: itemData.itemUser,
@@ -129,10 +184,14 @@
                             priceValue: itemData.priceValue,
                             stickersWithPrices: itemData.stickers,
                             keychainWithPrice: itemData.keychain,
-                            mode: 'display'
+                            mode: 'with-checkbox',
+                            checked: true,
+                            itemId: 'remove-' ~ itemData.assetId,
+                            rarity: itemData.item.rarity,
+                            type: itemData.item.type
                         } %}
                             {% block badges %}
-                                <span class="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
+                                <span class="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg z-10">
                                     REMOVE
                                 </span>
                             {% endblock %}
@@ -166,10 +225,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                 </svg>
                 <div>
-                    <h3 class="text-lg font-semibold text-red-100 mb-2">Warning: This Will Replace Your Inventory</h3>
+                    <h3 class="text-lg font-semibold text-red-100 mb-2">Review Your Selection</h3>
                     <p class="text-red-200 text-sm">
-                        Confirming this import will <strong>delete all {{ preview.itemsToRemove }} existing items</strong> from your inventory
-                        and replace them with the {{ preview.totalItems }} items shown above. This action cannot be undone.
+                        Check or uncheck items above to customize what will be imported. Only selected items will be added or removed.
                     </p>
                 </div>
             </div>
@@ -181,14 +239,18 @@
                     </button>
                 </form>
 
-                <form action="{{ path('inventory_import_confirm') }}" method="post" x-data="{ confirming: false }" @submit="confirming = true">
+                <form id="import-form" action="{{ path('inventory_import_confirm') }}" method="post" x-data="{ confirming: false }" @submit="confirming = true">
                     <input type="hidden" name="session_key" value="{{ preview.sessionKey }}">
+
+                    <!-- Hidden inputs populated by JavaScript on submit -->
+                    <div id="selected-items-container"></div>
+
                     <button
                         type="submit"
                         :disabled="confirming"
                         class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                     >
-                        <span x-show="!confirming">Confirm Import</span>
+                        <span x-show="!confirming">Confirm Import (<span id="total-selected-count">{{ preview.itemsToAdd + preview.itemsToRemove }}</span> items)</span>
                         <span x-show="confirming" class="flex items-center space-x-2">
                             <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

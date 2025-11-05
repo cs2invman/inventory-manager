@@ -10,6 +10,8 @@ class ImportResult
         public readonly int $errorCount,
         public readonly array $errors,
         public readonly array $skippedItems,
+        public readonly int $addedCount = 0,
+        public readonly int $removedCount = 0,
     ) {
     }
 
@@ -31,6 +33,8 @@ class ImportResult
             'error_count' => $this->errorCount,
             'errors' => $this->errors,
             'skipped_items' => $this->skippedItems,
+            'added_count' => $this->addedCount,
+            'removed_count' => $this->removedCount,
         ];
     }
 }

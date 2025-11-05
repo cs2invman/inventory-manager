@@ -11,6 +11,9 @@
     - mode: Display mode - 'display', 'with-checkbox', 'with-storage-badge' (default: 'display')
     - checked: Checkbox state for 'with-checkbox' mode (optional, default: true)
     - itemId: Unique identifier for checkbox (optional)
+    - rarity: Item rarity for filtering (optional)
+    - type: Item type for filtering (optional)
+    - priceValue: Price value for filtering (optional)
 
     Blocks:
     - badges: Override/add custom badges
@@ -24,7 +27,13 @@
 {% set priceValue = priceValue|default(null) %}
 {% set latestPrice = latestPrice|default(null) %}
 
-<div class="card hover:border-cs2-orange transition-colors duration-200 group relative">
+<div class="card hover:border-cs2-orange transition-colors duration-200 group relative"
+    {% if mode == 'with-checkbox' %}
+        data-rarity="{{ rarity|default(item.rarity) }}"
+        data-type="{{ type|default(item.type) }}"
+        data-price="{{ priceValue|default(0) }}"
+    {% endif %}
+>
     {# Checkbox for import preview #}
     {% if mode == 'with-checkbox' %}
         <div class="absolute top-2 right-2 z-10">

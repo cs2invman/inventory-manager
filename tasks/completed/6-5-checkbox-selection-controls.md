@@ -469,13 +469,13 @@ This can be done with CSS:
 
 ## Dependencies
 
-- **Task 1001**: Item card component with checkbox mode
-- **Task 1004**: Preview displays actual items
+- **Task 6-1**: Item card component with checkbox mode
+- **Task 6-4**: Preview displays actual items
 
 ## Next Tasks
 
 After this task is complete:
-- **Task 1006**: Update import execution to respect selection
+- **Task 6-6**: Update import execution to respect selection
 
 ## Related Files
 

@@ -197,8 +197,12 @@ class InventoryImportService
     /**
      * Execute the actual import from session data
      */
-    public function executeImport(User $user, string $sessionKey): ImportResult
-    {
+    public function executeImport(
+        User $user,
+        string $sessionKey,
+        array $selectedAddIds = [],
+        array $selectedRemoveIds = []
+    ): ImportResult {
         $sessionData = $this->retrieveFromSession($sessionKey);
 
         if ($sessionData === null) {
@@ -213,12 +217,15 @@ class InventoryImportService
 
         $mappedItems = $sessionData['items'];
         $storageBoxesData = $sessionData['storage_boxes'] ?? [];
+        $itemsToRemoveData = $sessionData['items_to_remove'] ?? [];
 
         $totalProcessed = 0;
         $successCount = 0;
         $errorCount = 0;
         $errors = [];
         $skippedItems = [];
+        $addedCount = 0;
+        $removedCount = 0;
 
         $this->entityManager->beginTransaction();
 
@@ -228,32 +235,66 @@ class InventoryImportService
                 $this->storageBoxService->syncStorageBoxes($user, $storageBoxesData);
             }
 
-            // IMPORTANT: Delete ONLY items in main inventory (storageBox IS NULL)
-            // Items in storage containers (both Steam and manual) are preserved
-            $qb = $this->entityManager->createQueryBuilder();
-            $qb->delete(ItemUser::class, 'iu')
-                ->where('iu.user = :user')
-                ->andWhere('iu.storageBox IS NULL')  // Only delete items NOT in storage
-                ->setParameter('user', $user);
+            // Extract assetIds from selected remove IDs
+            $assetIdsToRemove = [];
+            foreach ($selectedRemoveIds as $selectedId) {
+                // ID format: "remove-{assetId}"
+                $assetId = str_replace('remove-', '', $selectedId);
 
-            $deletedCount = $qb->getQuery()->execute();
+                // Validate that this assetId exists in items_to_remove
+                $found = false;
+                foreach ($itemsToRemoveData as $itemData) {
+                    if ($itemData['assetId'] === $assetId) {
+                        $assetIdsToRemove[] = $assetId;
+                        $found = true;
+                        break;
+                    }
+                }
 
-            $this->logger->info('Deleted main inventory items during import', [
-                'user_id' => $user->getId(),
-                'deleted_count' => $deletedCount,
-                'preserved_in_storage' => true
-            ]);
+                if (!$found) {
+                    $this->logger->warning('Selected remove ID not found in session', [
+                        'selected_id' => $selectedId,
+                        'asset_id' => $assetId
+                    ]);
+                }
+            }
 
-            // Create new ItemUser entities from parsed data
+            // Delete only selected items
+            if (!empty($assetIdsToRemove)) {
+                $qb = $this->entityManager->createQueryBuilder();
+                $qb->delete(ItemUser::class, 'iu')
+                    ->where('iu.user = :user')
+                    ->andWhere('iu.storageBox IS NULL')  // NEVER touch items in storage
+                    ->andWhere('iu.assetId IN (:asset_ids)')
+                    ->setParameter('user', $user)
+                    ->setParameter('asset_ids', $assetIdsToRemove);
+
+                $removedCount = $qb->getQuery()->execute();
+
+                $this->logger->info('Deleted selected inventory items during import', [
+                    'user_id' => $user->getId(),
+                    'deleted_count' => $removedCount,
+                    'selected_count' => count($assetIdsToRemove),
+                ]);
+            }
+
+            // Create new ItemUser entities from selected items only
             foreach ($mappedItems as $mappedItem) {
+                $data = $mappedItem['data'];
+                $assetId = $data['asset_id'];
+
+                // Check if this item was selected for addition
+                $itemId = 'add-' . $assetId;
+                if (!in_array($itemId, $selectedAddIds)) {
+                    continue; // Skip unselected items
+                }
+
                 $totalProcessed++;
 
                 try {
                     $itemUser = new ItemUser();
                     $itemUser->setUser($user);
                     $itemUser->setItem($mappedItem['item']);
-
-                    $data = $mappedItem['data'];
 
                     // Map all fields
                     if (isset($data['asset_id'])) {
@@ -286,6 +327,7 @@ class InventoryImportService
 
                     $this->entityManager->persist($itemUser);
                     $successCount++;
+                    $addedCount++;
                 } catch (\Exception $e) {
                     $errorCount++;
                     $errors[] = sprintf(
@@ -315,6 +357,8 @@ class InventoryImportService
                 errorCount: $totalProcessed,
                 errors: ['Import failed: ' . $e->getMessage()],
                 skippedItems: $skippedItems,
+                addedCount: 0,
+                removedCount: 0,
             );
         }
 
@@ -324,6 +368,8 @@ class InventoryImportService
             errorCount: $errorCount,
             errors: $errors,
             skippedItems: $skippedItems,
+            addedCount: $addedCount,
+            removedCount: $removedCount,
         );
     }
 
@@ -723,7 +769,8 @@ class InventoryImportService
 
         return [
             'items' => $mappedItems,
-            'storage_boxes' => $serializableData['storage_boxes'] ?? []
+            'storage_boxes' => $serializableData['storage_boxes'] ?? [],
+            'items_to_remove' => $serializableData['items_to_remove'] ?? []
         ];
     }
 
