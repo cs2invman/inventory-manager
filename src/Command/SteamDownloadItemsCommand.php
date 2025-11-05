@@ -18,6 +18,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class SteamDownloadItemsCommand extends Command
 {
     private const RECENT_FILE_THRESHOLD_MINUTES = 25;
+    private const CHUNK_SIZE = 5500;
 
     public function __construct(
         private readonly SteamWebApiClient $apiClient,
@@ -49,8 +50,8 @@ class SteamDownloadItemsCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        // Increase memory limit for large API responses (can be 100MB+, requires ~1GB with processing overhead)
-        ini_set('memory_limit', '1024M');
+        // Reduce memory limit with chunked downloads (was 1024M, now 512M)
+        ini_set('memory_limit', '512M');
 
         try {
             // Determine output directory
@@ -65,7 +66,11 @@ class SteamDownloadItemsCommand extends Command
                 }
             }
 
+            // Create import directory
+            $importDir = $this->ensureImportDirectory($outputDir);
+
             // Check for recent file unless --force is used
+            // For chunked downloads, we consider this a fresh download each time
             if (!$input->getOption('force')) {
                 $recentFile = $this->findRecentFile($outputDir);
                 if ($recentFile) {
@@ -76,49 +81,114 @@ class SteamDownloadItemsCommand extends Command
                 }
             }
 
-            // Download items
-            $io->text('Downloading CS2 items from SteamWebAPI...');
+            // Generate timestamp for this batch
+            $timestamp = (new \DateTimeImmutable())->format('Y-m-d-His');
+
+            // Download first chunk to determine total count
+            $io->text('Downloading CS2 items from SteamWebAPI (chunked)...');
+            $io->newLine();
 
             $startTime = microtime(true);
-            $jsonContent = $this->apiClient->fetchAllItems();
-            $duration = round(microtime(true) - $startTime, 2);
+            $firstChunkJson = $this->apiClient->fetchItemsPaginated(self::CHUNK_SIZE, 1);
+            $firstChunkItemCount = $this->parseItemCount($firstChunkJson);
 
-            // Decode to count items
-            $items = json_decode($jsonContent, true);
-            $itemCount = is_array($items) ? count($items) : 0;
+            // Calculate total chunks needed
+            // Note: The first page tells us how many items we got, but we need to estimate total
+            // For CS2, we know there are ~26,000 items, so we'll download until we get an empty/small response
+            // Let's use a more robust approach: keep downloading until we get fewer items than CHUNK_SIZE
+            $totalChunks = (int) ceil(26000 / self::CHUNK_SIZE); // Initial estimate: 5 chunks
 
-            // Generate filename with timestamp
-            $timestamp = (new \DateTimeImmutable())->format('Y-m-d-His');
-            $filename = "items-{$timestamp}.json";
-            $filepath = "{$outputDir}/{$filename}";
+            $totalBytesWritten = 0;
+            $totalItemsDownloaded = 0;
+            $chunks = [];
+            $page = 1;
 
-            // Write to file
-            $bytesWritten = file_put_contents($filepath, $jsonContent);
+            // Process first chunk
+            $filename = $this->generateChunkFilename($timestamp, $page, $totalChunks);
+            $filepath = "{$importDir}/{$filename}";
+            $bytesWritten = file_put_contents($filepath, $firstChunkJson);
 
             if ($bytesWritten === false) {
-                $io->error("Failed to write file: {$filepath}");
+                $io->error("Failed to write chunk file: {$filepath}");
                 return Command::FAILURE;
             }
 
-            // Create/update symlink
-            $symlinkPath = "{$outputDir}/items-latest.json";
-            if (file_exists($symlinkPath)) {
-                unlink($symlinkPath);
+            $totalBytesWritten += $bytesWritten;
+            $totalItemsDownloaded += $firstChunkItemCount;
+            $chunks[] = $filename;
+
+            $io->text("Chunk {$page} of ~{$totalChunks}: {$firstChunkItemCount} items, {$this->formatBytes($bytesWritten)}");
+
+            // Download remaining chunks
+            $page = 2;
+            while (true) {
+                $chunkJson = $this->apiClient->fetchItemsPaginated(self::CHUNK_SIZE, $page);
+                $chunkItemCount = $this->parseItemCount($chunkJson);
+
+                // If we got no items or very few, we're done
+                if ($chunkItemCount === 0) {
+                    break;
+                }
+
+                $filename = $this->generateChunkFilename($timestamp, $page, $totalChunks);
+                $filepath = "{$importDir}/{$filename}";
+                $bytesWritten = file_put_contents($filepath, $chunkJson);
+
+                if ($bytesWritten === false) {
+                    $io->error("Failed to write chunk file: {$filepath}");
+                    // Continue with other chunks instead of failing entirely
+                    $this->logger->warning("Failed to write chunk {$page}", ['filepath' => $filepath]);
+                    $page++;
+                    continue;
+                }
+
+                $totalBytesWritten += $bytesWritten;
+                $totalItemsDownloaded += $chunkItemCount;
+                $chunks[] = $filename;
+
+                $io->text("Chunk {$page} of ~{$totalChunks}: {$chunkItemCount} items, {$this->formatBytes($bytesWritten)}");
+
+                // If this chunk had fewer items than CHUNK_SIZE, we're likely done
+                if ($chunkItemCount < self::CHUNK_SIZE) {
+                    break;
+                }
+
+                $page++;
             }
-            symlink($filename, $symlinkPath);
+
+            // Update filenames with actual total chunk count
+            $actualTotalChunks = count($chunks);
+            if ($actualTotalChunks !== $totalChunks) {
+                // Rename files with correct total
+                foreach ($chunks as $index => $oldFilename) {
+                    $chunkNum = $index + 1;
+                    $newFilename = $this->generateChunkFilename($timestamp, $chunkNum, $actualTotalChunks);
+                    $oldPath = "{$importDir}/{$oldFilename}";
+                    $newPath = "{$importDir}/{$newFilename}";
+
+                    if ($oldFilename !== $newFilename && file_exists($oldPath)) {
+                        rename($oldPath, $newPath);
+                        $chunks[$index] = $newFilename;
+                    }
+                }
+            }
+
+            $duration = round(microtime(true) - $startTime, 2);
 
             // Clean up old files (keep last 7 days)
             $this->cleanupOldFiles($outputDir);
 
             // Display success message
+            $io->newLine();
             $io->success('Download completed successfully');
 
             $io->definitionList(
-                ['Items downloaded' => number_format($itemCount)],
-                ['File size' => $this->formatBytes($bytesWritten)],
+                ['Items downloaded' => number_format($totalItemsDownloaded)],
+                ['Total chunks' => $actualTotalChunks],
+                ['Chunk size' => number_format(self::CHUNK_SIZE) . ' items/chunk'],
+                ['Total file size' => $this->formatBytes($totalBytesWritten)],
                 ['Duration' => "{$duration}s"],
-                ['Saved to' => $filepath],
-                ['Symlink' => $symlinkPath]
+                ['Saved to' => $importDir]
             );
 
             return Command::SUCCESS;
@@ -160,28 +230,59 @@ class SteamDownloadItemsCommand extends Command
     }
 
     /**
-     * Clean up old download files
+     * Clean up old download files (both single files and chunks)
      */
     private function cleanupOldFiles(string $directory): void
     {
+        $threshold = time() - (7 * 24 * 60 * 60); // 7 days ago
+
+        // Clean up root-level single files (legacy format)
         $pattern = $directory . '/items-*.json';
         $files = glob($pattern);
 
-        if (empty($files)) {
-            return;
+        if (!empty($files)) {
+            foreach ($files as $file) {
+                // Skip symlinks
+                if (is_link($file)) {
+                    continue;
+                }
+
+                if (filemtime($file) < $threshold) {
+                    unlink($file);
+                    $this->logger->info('Deleted old item file', ['file' => $file]);
+                }
+            }
         }
 
-        $threshold = time() - (7 * 24 * 60 * 60); // 7 days ago
+        // Clean up chunk files from import/ folder
+        $importDir = $directory . '/import';
+        if (is_dir($importDir)) {
+            $chunkPattern = $importDir . '/items-chunk-*.json';
+            $chunkFiles = glob($chunkPattern);
 
-        foreach ($files as $file) {
-            // Skip symlinks
-            if (is_link($file)) {
-                continue;
+            if (!empty($chunkFiles)) {
+                foreach ($chunkFiles as $file) {
+                    if (filemtime($file) < $threshold) {
+                        unlink($file);
+                        $this->logger->info('Deleted old chunk file from import', ['file' => $file]);
+                    }
+                }
             }
+        }
 
-            if (filemtime($file) < $threshold) {
-                unlink($file);
-                $this->logger->info('Deleted old item file', ['file' => $file]);
+        // Clean up chunk files from processed/ folder (preparing for task 7-2)
+        $processedDir = $directory . '/processed';
+        if (is_dir($processedDir)) {
+            $processedPattern = $processedDir . '/items-chunk-*.json';
+            $processedFiles = glob($processedPattern);
+
+            if (!empty($processedFiles)) {
+                foreach ($processedFiles as $file) {
+                    if (filemtime($file) < $threshold) {
+                        unlink($file);
+                        $this->logger->info('Deleted old chunk file from processed', ['file' => $file]);
+                    }
+                }
             }
         }
     }
@@ -198,5 +299,36 @@ class SteamDownloadItemsCommand extends Command
         $bytes /= (1 << (10 * $pow));
 
         return round($bytes, 2) . ' ' . $units[$pow];
+    }
+
+    /**
+     * Parse item count from JSON response
+     */
+    private function parseItemCount(string $json): int
+    {
+        $items = json_decode($json, true);
+        return is_array($items) ? count($items) : 0;
+    }
+
+    /**
+     * Generate chunk filename with timestamp and numbers
+     */
+    private function generateChunkFilename(string $timestamp, int $chunkNum, int $totalChunks): string
+    {
+        $paddedNum = str_pad((string)$chunkNum, 3, '0', STR_PAD_LEFT);
+        $paddedTotal = str_pad((string)$totalChunks, 3, '0', STR_PAD_LEFT);
+        return "items-chunk-{$timestamp}-{$paddedNum}-of-{$paddedTotal}.json";
+    }
+
+    /**
+     * Ensure import directory exists and return its path
+     */
+    private function ensureImportDirectory(string $baseDir): string
+    {
+        $importDir = rtrim($baseDir, '/') . '/import';
+        if (!is_dir($importDir)) {
+            mkdir($importDir, 0755, true);
+        }
+        return $importDir;
     }
 }

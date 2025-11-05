@@ -143,17 +143,149 @@ class SteamWebApiClient
     }
 
     /**
-     * Build the complete URL for an API endpoint
+     * Fetch CS2 items from the SteamWebAPI with pagination
+     *
+     * @param int $max Number of items per page (e.g., 5500)
+     * @param int $page Page number (1-indexed: 1, 2, 3, etc.)
+     * @return string Raw JSON response from the API
+     * @throws SteamWebApiException If the request fails after all retries
      */
-    private function buildUrl(string $endpoint): string
+    public function fetchItemsPaginated(int $max, int $page): string
+    {
+        $url = $this->buildUrl('/items', [
+            'max' => $max,
+            'page' => $page,
+        ]);
+
+        $this->logger->info('Fetching CS2 items from SteamWebAPI (paginated)', [
+            'url' => $url,
+            'max' => $max,
+            'page' => $page,
+        ]);
+
+        $attempt = 0;
+        $lastException = null;
+
+        while ($attempt < self::MAX_RETRIES) {
+            $attempt++;
+
+            try {
+                $this->logger->debug("Attempting to fetch items page {$page} (attempt {$attempt}/" . self::MAX_RETRIES . ")");
+
+                $response = $this->httpClient->request('GET', $url, [
+                    'timeout' => self::REQUEST_TIMEOUT,
+                    'headers' => [
+                        'Accept' => 'application/json',
+                    ],
+                ]);
+
+                $statusCode = $response->getStatusCode();
+
+                if ($statusCode === 401 || $statusCode === 403) {
+                    throw SteamWebApiException::authenticationFailure();
+                }
+
+                if ($statusCode >= 400) {
+                    $errorMessage = $this->extractErrorMessage($response);
+                    throw SteamWebApiException::httpError($statusCode, $errorMessage);
+                }
+
+                $content = $response->getContent();
+
+                // Validate that we received valid JSON
+                $decoded = json_decode($content);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw SteamWebApiException::invalidResponse('Response is not valid JSON: ' . json_last_error_msg());
+                }
+
+                $this->logger->info('Successfully fetched CS2 items page from SteamWebAPI', [
+                    'attempt' => $attempt,
+                    'page' => $page,
+                    'max' => $max,
+                    'content_length' => strlen($content),
+                ]);
+
+                return $content;
+
+            } catch (TransportExceptionInterface $e) {
+                $lastException = $e;
+                $this->logger->warning("Network error on attempt {$attempt} (page {$page})", [
+                    'error' => $e->getMessage(),
+                    'attempt' => $attempt,
+                    'page' => $page,
+                ]);
+
+                if ($attempt < self::MAX_RETRIES) {
+                    $delay = $this->calculateRetryDelay($attempt);
+                    $this->logger->debug("Retrying in {$delay} seconds...");
+                    sleep($delay);
+                }
+            } catch (SteamWebApiException $e) {
+                // Don't retry authentication failures
+                if (str_contains($e->getMessage(), 'authentication')) {
+                    $this->logger->error('Authentication failure', [
+                        'error' => $e->getMessage(),
+                    ]);
+                    throw $e;
+                }
+
+                $lastException = $e;
+                $this->logger->warning("API error on attempt {$attempt} (page {$page})", [
+                    'error' => $e->getMessage(),
+                    'attempt' => $attempt,
+                    'page' => $page,
+                ]);
+
+                if ($attempt < self::MAX_RETRIES) {
+                    $delay = $this->calculateRetryDelay($attempt);
+                    $this->logger->debug("Retrying in {$delay} seconds...");
+                    sleep($delay);
+                }
+            } catch (\Throwable $e) {
+                $lastException = $e;
+                $this->logger->error("Unexpected error on attempt {$attempt} (page {$page})", [
+                    'error' => $e->getMessage(),
+                    'attempt' => $attempt,
+                    'page' => $page,
+                ]);
+
+                if ($attempt < self::MAX_RETRIES) {
+                    $delay = $this->calculateRetryDelay($attempt);
+                    sleep($delay);
+                }
+            }
+        }
+
+        // All retries exhausted
+        $this->logger->error('All retry attempts exhausted for SteamWebAPI request (page ' . $page . ')');
+
+        if ($lastException instanceof SteamWebApiException) {
+            throw $lastException;
+        }
+
+        throw SteamWebApiException::networkError(
+            'Failed after ' . self::MAX_RETRIES . ' attempts (page ' . $page . ')',
+            $lastException
+        );
+    }
+
+    /**
+     * Build the complete URL for an API endpoint
+     *
+     * @param string $endpoint API endpoint (e.g., '/items')
+     * @param array $extraParams Additional query parameters (e.g., ['max' => 5500, 'page' => 1])
+     */
+    private function buildUrl(string $endpoint, array $extraParams = []): string
     {
         $url = rtrim($this->baseUrl, '/') . $endpoint;
         $separator = str_contains($url, '?') ? '&' : '?';
 
-        return $url . $separator . http_build_query([
+        $params = array_merge([
             'key' => $this->apiKey,
             'game' => 'cs2',
-        ]);
+        ], $extraParams);
+
+        return $url . $separator . http_build_query($params);
     }
 
     /**

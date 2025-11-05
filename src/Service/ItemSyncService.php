@@ -29,9 +29,17 @@ class ItemSyncService
      * @param string $filePath Path to the JSON file containing item data
      * @param bool $skipPrices Whether to skip creating price history records
      * @param callable|null $progressCallback Optional callback to report progress (receives current index)
+     * @param array|null $accumulatedExternalIds Array to accumulate external IDs across multiple syncs (for deferred deactivation)
+     * @param bool $deferDeactivation Whether to skip deactivation step (for chunked processing)
      * @return array Statistics about the sync operation
      */
-    public function syncFromJsonFile(string $filePath, bool $skipPrices = false, ?callable $progressCallback = null): array
+    public function syncFromJsonFile(
+        string $filePath,
+        bool $skipPrices = false,
+        ?callable $progressCallback = null,
+        ?array &$accumulatedExternalIds = null,
+        bool $deferDeactivation = false
+    ): array
     {
         $this->logger->info('Starting item sync from JSON file', [
             'file' => $filePath,
@@ -100,6 +108,11 @@ class ItemSyncService
 
                         if (isset($result['external_id'])) {
                             $processedExternalIds[] = $result['external_id'];
+
+                            // Also add to accumulated IDs if provided (for chunked processing)
+                            if ($accumulatedExternalIds !== null) {
+                                $accumulatedExternalIds[] = $result['external_id'];
+                            }
                         }
 
                     } catch (\Throwable $e) {
@@ -144,17 +157,20 @@ class ItemSyncService
         }
 
         // Deactivate items not in the current sync (separate transaction)
-        try {
-            $this->entityManager->beginTransaction();
-            $stats['deactivated'] = $this->deactivateMissingItems($processedExternalIds);
-            $this->entityManager->commit();
-        } catch (\Throwable $e) {
-            if ($this->entityManager->getConnection()->isTransactionActive()) {
-                $this->entityManager->rollback();
+        // Skip this step if deferred deactivation is enabled (for chunked processing)
+        if (!$deferDeactivation) {
+            try {
+                $this->entityManager->beginTransaction();
+                $stats['deactivated'] = $this->deactivateMissingItems($processedExternalIds);
+                $this->entityManager->commit();
+            } catch (\Throwable $e) {
+                if ($this->entityManager->getConnection()->isTransactionActive()) {
+                    $this->entityManager->rollback();
+                }
+                $this->logger->warning('Failed to deactivate missing items', [
+                    'error' => $e->getMessage(),
+                ]);
             }
-            $this->logger->warning('Failed to deactivate missing items', [
-                'error' => $e->getMessage(),
-            ]);
         }
 
         $this->logger->info('Item sync completed successfully', $stats);
@@ -407,7 +423,7 @@ class ItemSyncService
      * @param array $currentExternalIds Array of external IDs from current sync
      * @return int Number of items deactivated
      */
-    private function deactivateMissingItems(array $currentExternalIds): int
+    public function deactivateMissingItems(array $currentExternalIds): int
     {
         if (empty($currentExternalIds)) {
             return 0;
