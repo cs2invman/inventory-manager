@@ -7,6 +7,14 @@ ARG GID
 RUN usermod -u $UID $USER || true
 RUN groupmod -g $GID $USER || true
 
+# Install curl extension if not present
+RUN if ! php -m | grep -q curl; then \
+    apt-get update && \
+    apt-get install -y libcurl4-openssl-dev && \
+    docker-php-ext-install curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 COPY ./docker/php/symfony.ini /usr/local/etc/php/conf.d/symfony.ini
 
 RUN mkdir -p /var/www/html
@@ -21,7 +29,7 @@ FROM php-base as php-development
 ARG USER
 
 USER root
-RUN pecl install xdebug
+RUN pecl install xdebug && docker-php-ext-enable xdebug
 
 USER $USER
 
