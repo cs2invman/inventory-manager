@@ -4,8 +4,6 @@
 .gitattributes
 
 # Environment and local configuration
-.env.local
-.env.*.local
 .env.test
 .env.prod
 
