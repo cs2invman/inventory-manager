@@ -1,45 +1,8 @@
-# Production Deployment Guide
+# Deployment Guide
 
-This guide covers deploying the CS2 Inventory Management System to a production server.
+This guide covers deploying CS2 Inventory Management System to production.
 
-## Docker Compose Structure
-
-The project uses a flexible Docker Compose configuration:
-
-- **`compose.yml`**: Base configuration (minimal service definitions)
-- **`compose.dev.yml`**: Development overrides (MySQL, dev builds, local volumes)
-- **`compose.prod.yml`**: Production overrides (prod builds, external DB, optimized volumes)
-- **`compose.override.yml`**: Generated file (gitignored) - copied from prod/dev as needed
-
-**How it works:**
-
-- **Development**:
-  ```bash
-  docker compose -f compose.yml -f compose.dev.yml up
-  # Or set: export COMPOSE_FILE=compose.yml:compose.dev.yml
-  ```
-- **Production**:
-  ```bash
-  # Deployment script copies compose.prod.yml to compose.override.yml
-  docker compose up  # Automatically merges compose.yml + compose.override.yml
-  ```
-
-**Benefits:**
-
-- Clean separation of environments (dev and prod committed to git)
-- Override file is generated per environment (not committed)
-- Production uses simple `docker compose up` (no `-f` flags)
-- MySQL only in `compose.dev.yml`, never in production
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Initial Server Setup](#initial-server-setup)
-- [Repository Setup](#repository-setup)
-- [Configuration](#configuration)
-- [Deployment Workflow](#deployment-workflow)
-- [Troubleshooting](#troubleshooting)
-- [Rollback Procedure](#rollback-procedure)
+**For production environment configuration, see [PRODUCTION.md](../PRODUCTION.md).**
 
 ## Prerequisites
 
@@ -47,159 +10,109 @@ The project uses a flexible Docker Compose configuration:
 
 - **OS**: Ubuntu 22.04 LTS
 - **RAM**: Minimum 2GB (4GB recommended)
-- **Disk**: Minimum 20GB free space
-- **Network**: Public IP or domain pointing to server
-- **Access**: SSH access with sudo privileges
+- **Disk**: Minimum 20GB free
+- **Access**: SSH with sudo privileges
 
 ### External Services
 
-- **MySQL Database**: MySQL 8.0 hosted externally
-  - Database created: `cs2inventory`
-  - User with full permissions
-  - Accessible from your server
-- **Domain**: Domain or subdomain configured (e.g., cs2invman.gms.tools)
-- **SSL**: CloudFlare, AWS ALB, or other external SSL termination
+- **MariaDB 11.x**: Hosted externally, accessible from server
+- **Domain**: Optional but recommended
+- **SSL**: External SSL termination (CloudFlare, AWS ALB, or reverse proxy)
 
-### Local Development
+### Local Requirements
 
-- **Node.js**: v18+ (for building frontend assets)
-- **Git**: For version control
-- **SSH Key**: Deploy key for repository access
+- **Node.js**: v18+ for building assets
+- **Git**: Version control
+- **SSH Key**: For repository access
 
-## Initial Server Setup
+## Initial Setup
 
 ### 1. Run Setup Script
 
-Copy the `setup.sh` script to your server and run it as root:
+Copy and run `setup.sh` on fresh Ubuntu 22.04 LTS server:
 
 ```bash
-# On your server
+# On server as root
 sudo -i
 cd /tmp
-# Copy setup.sh to the server (using scp, vim, or other method)
+# Copy setup.sh to server (scp, vim, etc.)
 chmod +x setup.sh
 ./setup.sh
 ```
 
-The setup script will:
-- Install Docker Engine and Docker Compose
-- Configure firewall (UFW)
-- Create application directory structure
-- Set up the ubuntu user for Docker access
+**Script Actions:**
+- Installs Docker and Docker Compose
+- Configures firewall (UFW)
+- Creates application directory
+- Sets up user for Docker access
 
 ### 2. Reboot Server
 
-**IMPORTANT**: After running setup.sh, reboot the server for Docker group changes to take effect:
+**IMPORTANT**: Reboot for Docker group changes:
 
 ```bash
 sudo shutdown -r now
 ```
 
-### 3. Set Up Deploy SSH Key
-
-After reboot, generate an SSH key for deploying from the repository:
+### 3. Generate Deploy SSH Key
 
 ```bash
-# As ubuntu user
+# After reboot, as non-root user
 ssh-keygen -t ed25519 -C "cs2inventory-deploy"
-
-# Display the public key
 cat ~/.ssh/id_ed25519.pub
 ```
 
-Add this public key to your git repository's deploy keys:
-- GitHub: Settings → Deploy Keys → Add deploy key
-- GitLab: Settings → Repository → Deploy Keys
-- Bitbucket: Repository Settings → Access keys
+Add public key to repository's deploy keys (GitHub/GitLab/Bitbucket settings).
 
 ### 4. Clone Repository
 
 ```bash
-# As ubuntu user
 cd ~
 git clone git@<your-git-host>:<your-repo>.git cs2inventory
 cd cs2inventory
 ```
 
-## Repository Setup
+### 5. Setup External Database
 
-### External MySQL Database
-
-Set up your MySQL database:
+On your MariaDB server:
 
 ```sql
--- Connect to your MySQL server
-mysql -u root -p
-
--- Create database
 CREATE DATABASE cs2inventory CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- Create user (replace with secure password)
 CREATE USER 'cs2user'@'%' IDENTIFIED BY 'YourSecurePassword123!';
-
--- Grant permissions
 GRANT ALL PRIVILEGES ON cs2inventory.* TO 'cs2user'@'%';
 FLUSH PRIVILEGES;
 ```
 
-**Security Note**: Ensure your MySQL server:
-- Is accessible from your application server
-- Has proper firewall rules (only allow your app server IP)
-- Uses strong passwords
-- Has SSL enabled (recommended)
+**Security**: Ensure database is accessible from app server only (firewall rules).
 
-## Configuration
-
-### 1. Create Production Environment File
+### 6. Configure Environment
 
 ```bash
-cd ~/cs2inventory
 cp .env.prod.example .env
 nano .env
-```
-
-### 2. Configure Required Variables
-
-Edit `.env` with your production values:
-
-```bash
-# Application
-APP_ENV=prod
-APP_SECRET=<generate-with: openssl rand -hex 32>
-
-# Database (External MySQL)
-DATABASE_URL="mysql://cs2user:YourSecurePassword123!@your-db-host:3306/cs2inventory?serverVersion=8.0&charset=utf8mb4"
-
-# Steam API
-STEAM_WEB_API_KEY=your_actual_steam_api_key
-
-# Application URL
-DEFAULT_URI=https://cs2invman.gms.tools
-
-# Other settings (usually defaults are fine)
-STEAM_WEB_API_BASE_URL=https://www.steamwebapi.com/steam/api
-STEAM_ITEMS_STORAGE_PATH=var/data/steam-items
-LOCK_DSN=flock
-NGINX_PORT=80
-```
-
-### 3. Secure Environment File
-
-```bash
 chmod 600 .env
 ```
 
+**Required variables:**
+- `APP_ENV=prod`
+- `APP_SECRET` (generate: `openssl rand -hex 32`)
+- `DATABASE_URL` (external MariaDB connection)
+- `STEAM_WEB_API_KEY`
+- `DEFAULT_URI` (your domain)
+
+**See [PRODUCTION.md](../PRODUCTION.md) for detailed environment configuration.**
+
 ## Deployment Workflow
 
-### Local Development Workflow
+### Build Assets Locally
 
-Before deploying, you must build frontend assets locally:
+**IMPORTANT**: Assets must be built before deployment (production server has no Node.js).
 
 ```bash
 # On your local machine
 cd cs2inventory
 
-# Install dependencies (if not already installed)
+# Install dependencies
 npm install
 
 # Build production assets
@@ -210,17 +123,10 @@ git add public/build
 git commit -m "Build assets for deployment"
 
 # Push to repository
-git push origin master
+git push origin main
 ```
 
-**Why build locally?**
-- Production server doesn't need Node.js installed
-- Faster deployments (no npm install/build on server)
-- Consistent builds across environments
-
-### Deploy to Production
-
-Once assets are built and pushed, deploy on the server:
+### Deploy to Server
 
 ```bash
 # On production server
@@ -228,17 +134,21 @@ cd ~/cs2inventory
 ./deploy/update.sh -f
 ```
 
-The update script will:
-1. Create a backup of current deployment
-2. Pull latest code from git
-3. Verify built assets exist
-4. Check database connectivity
-5. Build and restart Docker containers
-6. Run database migrations
-7. Warm up cache
-8. Perform health checks
+**Script Actions:**
+1. Creates backup of current deployment
+2. Pulls latest code from git
+3. Verifies built assets exist
+4. Checks database connectivity
+5. Builds and restarts Docker containers
+6. Runs database migrations
+7. Warms cache
+8. Performs health checks
 
-### What Happens During Deployment
+**Flags:**
+- `-f` or `--force`: Force full rebuild (recommended for first deployment)
+- No flags: Quick update (pulls code, restarts containers)
+
+### Expected Output
 
 ```
 CS2 Inventory Deployment
@@ -281,109 +191,62 @@ Maintenance:   7s
 Total:        63s
 ```
 
-## Troubleshooting
+### Post-Deployment
 
-### Database Connection Errors
-
-**Symptom**: `Database connection failed` during deployment
-
-**Solutions**:
-1. Verify DATABASE_URL in `.env` is correct
-2. Test connection manually:
-   ```bash
-   docker compose run --rm php php bin/console dbal:run-sql "SELECT 1"
-   ```
-3. Check MySQL server is accessible:
-   ```bash
-   mysql -h your-db-host -u cs2user -p
-   ```
-4. Verify firewall allows connection from app server
-5. Check MySQL user has proper permissions
-
-### Built Assets Missing
-
-**Symptom**: Warning about missing assets in `public/build/`
-
-**Solutions**:
-1. Build assets locally:
-   ```bash
-   npm run build
-   ```
-2. Commit and push:
-   ```bash
-   git add public/build
-   git commit -m "Build assets"
-   git push
-   ```
-3. Re-run deployment
-
-### Container Startup Failures
-
-**Symptom**: Containers fail to start or crash immediately
-
-**Solutions**:
-1. Check container logs:
-   ```bash
-   docker compose logs -f
-   docker compose logs php
-   docker compose logs nginx
-   ```
-2. Verify `.env` file exists and is properly configured
-3. Check disk space: `df -h`
-4. Verify Docker is running: `docker ps`
-
-### Permission Issues
-
-**Symptom**: Permission denied errors in logs
-
-**Solutions**:
 ```bash
+# Create first user
+docker compose exec php php bin/console app:create-user
+
+# Sync Steam items
+docker compose exec php php bin/console app:steam:download-items
+docker compose exec php php bin/console app:steam:sync-items
+
+# Access application
+# Navigate to your domain or server IP
+```
+
+## Updating Application
+
+### Local Workflow
+
+```bash
+# 1. Make code changes
+# 2. Build assets
+npm run build
+
+# 3. Commit changes (including built assets)
+git add .
+git commit -m "Your changes"
+
+# 4. Push to repository
+git push origin main
+```
+
+### Server Workflow
+
+```bash
+# 5. Deploy updates
 cd ~/cs2inventory
-docker compose exec php chown -R appuser:appuser var/
-docker compose exec php chmod -R 775 var/
+./deploy/update.sh
+
+# 6. Verify
+docker compose logs -f
+docker compose ps
 ```
 
-### OPcache Not Reflecting Changes
+**Note**: With OPcache `validate_timestamps=0`, code changes require container restart (handled by update script).
 
-**Symptom**: Code changes not visible after deployment
-
-**Solution**: With `opcache.validate_timestamps=0`, you must restart containers:
-```bash
-docker compose restart php nginx
-```
-
-### Migration Failures
-
-**Symptom**: Database migration fails during deployment
-
-**Solutions**:
-1. Check migration error in logs
-2. Manually run migrations with verbose output:
-   ```bash
-   docker compose exec php php bin/console doctrine:migrations:migrate -vvv
-   ```
-3. If migration is stuck, check database locks:
-   ```sql
-   SHOW FULL PROCESSLIST;
-   ```
-4. Roll back migration if needed:
-   ```bash
-   docker compose exec php php bin/console doctrine:migrations:migrate prev
-   ```
-
-## Rollback Procedure
-
-If a deployment causes issues, you can rollback:
+## Rollback Procedures
 
 ### Method 1: Restore from Backup
 
 ```bash
 cd ~/cs2inventory
 
-# Find the backup
+# Find backup
 ls -lh backups/
 
-# Extract the backup (this will overwrite current files)
+# Extract backup (overwrites current files)
 tar -xzf backups/backup-20251105-143022.tar.gz
 
 # Setup production override
@@ -399,7 +262,7 @@ docker compose up -d
 ```bash
 cd ~/cs2inventory
 
-# Find the commit to rollback to
+# Find commit to rollback to
 git log --oneline -10
 
 # Reset to previous commit
@@ -412,18 +275,110 @@ cp compose.prod.yml compose.override.yml
 docker compose build --no-cache
 docker compose up -d
 
-# Run migrations down if needed
+# Rollback migrations if needed
 docker compose exec php php bin/console doctrine:migrations:migrate prev --no-interaction
 ```
 
 ### Verify Rollback
 
-After rollback:
-1. Check containers are running: `docker compose ps`
-2. Check application: `curl http://localhost/`
-3. Check logs: `docker compose logs -f`
+```bash
+docker compose ps
+curl http://localhost/
+docker compose logs -f
+```
 
-## Monitoring and Maintenance
+## Troubleshooting
+
+### Built Assets Missing
+
+**Symptom**: Warning about missing assets in `public/build/`
+
+**Solution:**
+```bash
+# On local machine
+npm run build
+git add public/build
+git commit -m "Build assets"
+git push
+
+# On server
+cd ~/cs2inventory
+./deploy/update.sh
+```
+
+### Database Connection Failed
+
+**Symptom**: `Database connection failed` during deployment
+
+**Solutions:**
+```bash
+# Verify DATABASE_URL in .env
+cat .env | grep DATABASE_URL
+
+# Test connection
+docker compose run --rm php php bin/console dbal:run-sql "SELECT 1"
+
+# Check database accessibility
+mysql -h your-db-host -u cs2user -p
+
+# Check firewall allows connection from app server
+```
+
+**See [PRODUCTION.md](../PRODUCTION.md) for detailed troubleshooting.**
+
+### Container Startup Failures
+
+**Solutions:**
+```bash
+# Check logs
+docker compose logs -f
+docker compose logs php
+docker compose logs nginx
+
+# Verify .env exists and configured
+cat .env
+
+# Check disk space
+df -h
+
+# Rebuild containers
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+### Migration Failures
+
+**Solutions:**
+```bash
+# Check error in logs
+docker compose logs php
+
+# Verbose migration output
+docker compose exec php php bin/console doctrine:migrations:migrate -vvv
+
+# Check database locks
+# In MySQL: SHOW FULL PROCESSLIST;
+
+# Rollback if needed
+docker compose exec php php bin/console doctrine:migrations:migrate prev
+```
+
+### Deployment Script Fails
+
+**Check deployment log:**
+```bash
+tail -f var/log/deploy.log
+```
+
+**Common issues:**
+- Missing `.env` file
+- Insufficient disk space
+- Database not accessible
+- Built assets missing
+- Permissions issues
+
+## Monitoring
 
 ### View Logs
 
@@ -435,80 +390,70 @@ docker compose logs -f
 docker compose logs -f php
 docker compose logs -f nginx
 
-# Last 100 lines
-docker compose logs --tail=100 php
-
 # Deployment log
 tail -f var/log/deploy.log
 ```
 
-### Check Container Status
+### Check Status
 
 ```bash
 docker compose ps
 docker compose top
-```
-
-### Monitor Resources
-
-```bash
-# CPU and memory usage
 docker stats
-
-# Disk usage
-df -h
-docker system df
 ```
 
-### Database Backups
-
-Set up automated database backups (recommended):
+### Health Check
 
 ```bash
-# Example backup script
-mysqldump -h your-db-host -u cs2user -p cs2inventory > backup-$(date +%Y%m%d).sql
-```
+# Application responding
+curl http://localhost/
 
-Consider:
-- Daily automated backups
-- Off-site backup storage
-- Regular backup testing
+# PHP responding
+docker compose exec php php -v
 
-### Update Docker Images
-
-Periodically update Docker images:
-
-```bash
-cd ~/cs2inventory
-docker compose pull
-docker compose up -d
+# Database connection
+docker compose exec php php bin/console dbal:run-sql "SELECT 1"
 ```
 
 ## Security Checklist
 
-- [ ] `.env` file has chmod 600 permissions
-- [ ] Strong APP_SECRET generated
-- [ ] Strong database password used
-- [ ] STEAM_WEB_API_KEY kept private
+Before going live:
+
+- [ ] `.env` permissions: `chmod 600 .env`
+- [ ] Strong `APP_SECRET` generated
+- [ ] Strong database password
+- [ ] `STEAM_WEB_API_KEY` kept private
 - [ ] Firewall (UFW) enabled and configured
-- [ ] SSH key-based authentication enabled
-- [ ] MySQL only accessible from app server
-- [ ] SSL/HTTPS enabled via CloudFlare or reverse proxy
-- [ ] Regular security updates: `apt update && apt upgrade`
+- [ ] SSH key-based authentication
+- [ ] Database only accessible from app server
+- [ ] HTTPS enabled via external proxy
+- [ ] Regular system updates scheduled
 - [ ] Database backups automated
 - [ ] Logs monitored regularly
 
+## Docker Compose Structure
+
+The project uses flexible Docker Compose configuration:
+
+- **`compose.yml`**: Base service definitions
+- **`compose.dev.yml`**: Development overrides (MySQL, dev volumes)
+- **`compose.prod.yml`**: Production overrides (external DB, optimized)
+- **`compose.override.yml`**: Auto-generated (gitignored)
+
+**Production**: Deployment script copies `compose.prod.yml` to `compose.override.yml`, then `docker compose up` automatically merges base + override.
+
 ## Additional Resources
 
-- [CLAUDE.md](../CLAUDE.md) - Full production deployment documentation
-- [Task 10](../tasks/completed/10-production-docker-configuration.md) - Production Docker configuration details
-- [compose.prod.yml](../compose.prod.yml) - Production Docker Compose configuration
-- [.env.prod.example](../.env.prod.example) - Environment variable template
+- **[PRODUCTION.md](../PRODUCTION.md)** - Environment configuration, console commands, maintenance
+- **[CLAUDE.md](../CLAUDE.md)** - Development guide and architecture
+- **[README.md](../README.md)** - Project overview and development setup
+- **[compose.prod.yml](../compose.prod.yml)** - Production Docker configuration
+- **[.env.prod.example](../.env.prod.example)** - Environment template
 
 ## Support
 
-For issues or questions:
-1. Check the troubleshooting section above
-2. Review container logs: `docker compose logs -f`
-3. Check deployment log: `tail -f var/log/deploy.log`
-4. Review the CLAUDE.md file for detailed configuration info
+For deployment issues:
+1. Check troubleshooting section above
+2. Review deployment log: `tail -f var/log/deploy.log`
+3. Review container logs: `docker compose logs -f`
+4. Check [PRODUCTION.md](../PRODUCTION.md) for environment-specific issues
