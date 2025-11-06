@@ -1,0 +1,21 @@
+framework:
+    cache:
+        # Use APCu for better performance in production
+        # APCu is faster than filesystem cache and suitable for single-server deployments
+        # For multi-server deployments, consider using Redis or Memcached instead
+        app: cache.adapter.apcu
+
+        # Alternative: Use filesystem cache if APCu is not available
+        # Uncomment the line below and comment out the APCu line above
+        # app: cache.adapter.filesystem
+
+        # System cache always uses filesystem
+        system: cache.adapter.filesystem
+
+        # Configure pools for specific use cases
+        pools:
+            # Cache pool for rate limiting (login attempts, etc.)
+            cache.rate_limiter:
+                adapter: cache.adapter.apcu
+                # Fallback to filesystem if APCu is not available
+                # adapter: cache.adapter.filesystem

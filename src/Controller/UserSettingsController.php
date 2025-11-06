@@ -55,7 +55,15 @@ class UserSettingsController extends AbstractController
 
                 // Check if there's a redirect parameter
                 $redirectRoute = $request->query->get('redirect');
-                if ($redirectRoute) {
+
+                // Whitelist of allowed redirect routes to prevent open redirect vulnerability
+                $allowedRedirects = [
+                    'inventory_import_form',
+                    'app_dashboard',
+                    'inventory_index',
+                ];
+
+                if ($redirectRoute && in_array($redirectRoute, $allowedRedirects, true)) {
                     // Redirect back to the specified route
                     return $this->redirectToRoute($redirectRoute);
                 }

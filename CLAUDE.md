@@ -69,14 +69,15 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 
 **SteamWebApiClient** (`src/Service/SteamWebApiClient.php`)
 
-- Fetches CS2 item data from SteamWebAPI.com
-- Methods: `getItems()`, `getItemPrices()`
+- Fetches CS2 item data from SteamWebAPI.com using pagination
+- Methods: `fetchItemsPaginated()` (5500 items per request), `getItemPrices()`
 - Requires: `STEAM_WEB_API_KEY` env variable
 
 **ItemSyncService** (`src/Service/ItemSyncService.php`)
 
-- Syncs item data from JSON files to database
+- Syncs item data from JSON files to database (single file or chunked)
 - Handles deduplication by external_id
+- Supports deferred deactivation for chunked processing
 - Maps API fields to Item entity
 - Tracks price history
 
@@ -123,9 +124,9 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 php bin/console app:create-user
 php bin/console app:list-users
 
-# Steam data synchronization
-php bin/console app:steam:download-items  # Download from SteamWebAPI
-php bin/console app:steam:sync-items      # Sync JSON to database
+# Steam data synchronization (chunked for memory efficiency)
+php bin/console app:steam:download-items  # Downloads 5500 items/chunk to var/data/steam-items/import/
+php bin/console app:steam:sync-items      # Syncs chunks from import/ to DB, moves to processed/
 ```
 
 ### Current Features
@@ -134,6 +135,7 @@ php bin/console app:steam:sync-items      # Sync JSON to database
     - Email/password login with Symfony Security
     - User account management with active status
     - Login tracking (lastLoginAt)
+    - **Login rate limiting**: 3 failed attempts per 5 minutes per IP address (protection against brute force attacks)
 
 2. **Steam Item Database**
     - Full CS2 item catalog from SteamWebAPI
@@ -227,9 +229,9 @@ docker compose run --rm node npm run watch
 docker compose exec php php bin/console app:create-user
 docker compose exec php php bin/console app:list-users
 
-# Steam data synchronization
-docker compose exec php php bin/console app:steam:download-items
-docker compose exec php php bin/console app:steam:sync-items
+# Steam data synchronization (chunked for memory efficiency)
+docker compose exec php php bin/console app:steam:download-items  # Downloads chunks
+docker compose exec php php bin/console app:steam:sync-items      # Syncs chunks to DB
 ```
 
 ### Database Operations (Docker)
@@ -245,6 +247,259 @@ docker compose exec php php bin/console doctrine:migrations:migrate
 docker compose exec php php bin/console doctrine:fixtures:load
 ```
 
+## Production Deployment
+
+### Production Docker Configuration
+
+The application uses a multi-stage Dockerfile with separate configurations for development and production environments.
+
+#### Production Architecture
+
+- **PHP-FPM**: Production-optimized with OPcache enabled, APCu caching, no development tools
+- **Nginx**: Production-optimized with gzip compression, security headers, proper timeouts
+- **External Database**: MySQL 8.0 hosted externally (not containerized)
+- **SSL**: Terminated externally via CloudFlare, AWS ALB, or reverse proxy
+
+#### Production Files
+
+- `compose.prod.yml`: Production Docker Compose configuration (no MySQL/Node containers)
+- `docker/php/php.prod.ini`: Production PHP settings with OPcache
+- `docker/nginx/production.conf`: Production-optimized nginx configuration
+- `config/packages/prod/cache.yaml`: Production cache configuration (APCu)
+- `.env.prod.example`: Template for production environment variables
+- `.dockerignore`: Excludes development files from Docker image
+
+### Setting Up Production Environment
+
+#### 1. Prepare External MySQL Database
+
+```bash
+# Connect to your MySQL server
+mysql -u root -p
+
+# Create database
+CREATE DATABASE cs2inventory CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+# Create user with secure password
+CREATE USER 'cs2user'@'%' IDENTIFIED BY 'YourSecurePassword123!';
+
+# Grant permissions
+GRANT ALL PRIVILEGES ON cs2inventory.* TO 'cs2user'@'%';
+FLUSH PRIVILEGES;
+```
+
+Ensure the MySQL server is accessible from your Docker host (check firewall rules, security groups, etc.).
+
+#### 2. Configure Environment Variables
+
+```bash
+# Copy the production environment template
+cp .env.prod.example .env
+
+# Edit .env with your production values
+nano .env
+```
+
+Required environment variables:
+
+- `APP_ENV=prod` - Must be 'prod' for production
+- `APP_SECRET` - Generate strong random secret: `openssl rand -hex 32`
+- `DATABASE_URL` - External MySQL connection string
+- `STEAM_WEB_API_KEY` - Your Steam Web API key
+- `DEFAULT_URI` - Your production domain (https://your-domain.com)
+- `NGINX_PORT` - Port to expose nginx (default: 80)
+
+Example `DATABASE_URL`:
+```
+mysql://cs2user:YourSecurePassword123!@db.example.com:3306/cs2inventory?serverVersion=8.0&charset=utf8mb4
+```
+
+#### 3. Build Frontend Assets
+
+Assets must be built locally BEFORE deploying to production:
+
+```bash
+# Install dependencies (locally or in Node container)
+npm install
+
+# Build production assets
+npm run build
+
+# Assets will be in public/build/ and copied to Docker image
+```
+
+#### 4. Build and Deploy
+
+```bash
+# Build production Docker image
+docker compose -f compose.prod.yml build
+
+# Start production containers
+docker compose -f compose.prod.yml up -d
+
+# Run database migrations
+docker compose -f compose.prod.yml exec php php bin/console doctrine:migrations:migrate --no-interaction
+
+# Verify services are running
+docker compose -f compose.prod.yml ps
+```
+
+#### 5. Verify Production Configuration
+
+```bash
+# Check PHP OPcache is enabled
+docker compose -f compose.prod.yml exec php php -i | grep opcache.enable
+
+# Check APCu is available
+docker compose -f compose.prod.yml exec php php -i | grep apcu
+
+# Verify database connection
+docker compose -f compose.prod.yml exec php php bin/console doctrine:query:sql "SELECT 1"
+
+# Check application health
+curl http://localhost/login
+```
+
+### Production Console Commands
+
+All console commands in production must use the production compose file:
+
+```bash
+# User management
+docker compose -f compose.prod.yml exec php php bin/console app:create-user
+docker compose -f compose.prod.yml exec php php bin/console app:list-users
+
+# Steam data synchronization
+docker compose -f compose.prod.yml exec php php bin/console app:steam:download-items
+docker compose -f compose.prod.yml exec php php bin/console app:steam:sync-items
+
+# Database migrations
+docker compose -f compose.prod.yml exec php php bin/console doctrine:migrations:migrate
+
+# Clear cache (required after code changes)
+docker compose -f compose.prod.yml exec php php bin/console cache:clear --env=prod
+```
+
+### Production Deployment Workflow
+
+When deploying code updates to production:
+
+```bash
+# 1. Build assets locally
+npm run build
+
+# 2. Rebuild Docker image (includes new code and assets)
+docker compose -f compose.prod.yml build --no-cache
+
+# 3. Stop old containers
+docker compose -f compose.prod.yml down
+
+# 4. Start new containers
+docker compose -f compose.prod.yml up -d
+
+# 5. Run migrations if needed
+docker compose -f compose.prod.yml exec php php bin/console doctrine:migrations:migrate --no-interaction
+
+# 6. Verify deployment
+docker compose -f compose.prod.yml logs -f
+```
+
+**Important**: With `opcache.validate_timestamps=0`, code changes require container restart to take effect.
+
+### Production Configuration Details
+
+#### PHP Production Settings (`docker/php/php.prod.ini`)
+
+- **OPcache**: Enabled with 256M memory, validate_timestamps=0 for maximum performance
+- **APCu**: Enabled for caching (rate limiter, application cache)
+- **Memory**: 512M limit (vs 256M in dev)
+- **Timeouts**: 60s execution time (vs 300s in dev)
+- **Uploads**: 10M max (vs 32M in dev)
+- **Errors**: Logged only, not displayed
+- **Security**: expose_php=Off, allow_url_include=Off
+
+#### Nginx Production Settings (`docker/nginx/production.conf`)
+
+- **Gzip**: Enabled for text/css/js/json compression
+- **Timeouts**: 60s to match PHP settings
+- **Client Size**: 10M max body size
+- **Security**: Server tokens hidden, security headers enabled
+- **Caching**: Static assets cached for 1 year
+- **Buffers**: Optimized for production traffic
+
+#### Cache Configuration (`config/packages/prod/cache.yaml`)
+
+- **Application Cache**: Uses APCu (faster than filesystem)
+- **Rate Limiter**: Uses APCu for distributed rate limiting
+- **System Cache**: Uses filesystem
+
+For multi-server deployments, consider using Redis instead of APCu.
+
+### SSL/HTTPS Configuration
+
+The production setup expects SSL termination to be handled externally:
+
+- Nginx listens on HTTP (port 80) only
+- CloudFlare, AWS ALB, or reverse proxy handles HTTPS
+- Configure trusted proxies in `config/packages/framework.yaml`:
+
+```yaml
+framework:
+    trusted_proxies: '127.0.0.1,REMOTE_ADDR'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-port']
+```
+
+### Production Security Checklist
+
+- [ ] Change `APP_SECRET` to strong random value
+- [ ] Use strong database password
+- [ ] Keep `STEAM_WEB_API_KEY` private
+- [ ] Set `.env` file permissions: `chmod 600 .env`
+- [ ] Never commit `.env` with real secrets to git
+- [ ] Enable HTTPS via external proxy/CDN
+- [ ] Configure firewall rules (only allow necessary ports)
+- [ ] Set up automated backups for MySQL database
+- [ ] Monitor application logs regularly
+- [ ] Keep Docker images updated
+
+### Troubleshooting Production Issues
+
+#### Database Connection Errors
+
+```bash
+# Test database connection from PHP container
+docker compose -f compose.prod.yml exec php php bin/console dbal:run-sql "SELECT 1"
+
+# Check MySQL is accessible from Docker host
+docker compose -f compose.prod.yml exec php mysql -h DB_HOST -u DB_USER -p
+```
+
+#### OPcache Not Working
+
+```bash
+# Verify OPcache is enabled and configured
+docker compose -f compose.prod.yml exec php php -i | grep opcache
+
+# Check OPcache statistics
+docker compose -f compose.prod.yml exec php php -r "print_r(opcache_get_status());"
+```
+
+#### Code Changes Not Reflected
+
+With `opcache.validate_timestamps=0`, restart containers after code changes:
+
+```bash
+docker compose -f compose.prod.yml restart php nginx
+```
+
+#### Permission Issues
+
+```bash
+# Fix var directory permissions
+docker compose -f compose.prod.yml exec php chown -R appuser:appuser var/
+docker compose -f compose.prod.yml exec php chmod -R 775 var/
+```
+
 ## Configuration Management
 
 ### Environment Variables (.env)
@@ -256,7 +511,7 @@ Key configuration variables:
 - `DATABASE_URL`: MySQL connection string
 - `STEAM_WEB_API_KEY`: API key for SteamWebAPI.com
 - `STEAM_WEB_API_BASE_URL`: Base URL for SteamWebAPI (https://www.steamwebapi.com/steam/api)
-- `STEAM_ITEMS_STORAGE_PATH`: Local path for storing downloaded item JSON files (var/data/steam-items)
+- `STEAM_ITEMS_STORAGE_PATH`: Local path for chunk storage (var/data/steam-items with import/ and processed/ subdirs)
 
 ### Docker Environment Variables
 
@@ -296,6 +551,52 @@ Key application routes:
 - `storage_box`: unique index on asset_id, index on user_id
 - `item`: indexes on type, category, rarity, active, external_id
 
+## Security Features
+
+### Login Rate Limiting
+
+The application implements login rate limiting to protect against brute force attacks:
+
+- **Policy**: Sliding window algorithm
+- **Limit**: 3 failed login attempts per 5 minutes per IP address
+- **Implementation**: `LoginRateLimitSubscriber` (src/EventSubscriber/LoginRateLimitSubscriber.php)
+- **Configuration**: `config/packages/framework.yaml` (rate_limiter section)
+- **Dependencies**:
+  - `symfony/rate-limiter` - Rate limiting component
+  - `symfony/lock` - Lock component for atomic operations
+- **Storage**: Uses Symfony cache (filesystem by default, can be configured for Redis/APCu)
+
+**Behavior**:
+- Rate limit is checked before authentication attempt
+- Failed logins consume a token from the rate limiter
+- Successful logins reset the rate limiter for that IP
+- When limit is exceeded, users see: "Too many failed login attempts. Please try again in X minute(s)."
+
+**Trusted Proxies**: Configured for Docker environment to correctly detect client IP addresses through nginx proxy.
+
+**Adjusting Rate Limits**: Edit the `limit` and `interval` values in `config/packages/framework.yaml`:
+```yaml
+framework:
+    rate_limiter:
+        login:
+            policy: 'sliding_window'
+            limit: 3              # Change number of attempts
+            interval: '5 minutes' # Change time window
+```
+
+### Other Security Features
+
+- **CSRF Protection**: Enabled globally for all forms
+- **Password Hashing**: Uses Symfony's 'auto' algorithm (bcrypt/argon2)
+- **SQL Injection Prevention**: All queries use Doctrine ORM with parameterized queries
+- **XSS Prevention**: Twig auto-escaping enabled by default
+- **Access Control**: All protected routes require `ROLE_USER` via `#[IsGranted]` attribute
+- **User Ownership Validation**: Controllers validate user ownership before accessing/modifying resources
+- **Session Security**: Secure session cookies with SameSite=Lax protection
+- **Open Redirect Prevention**: Redirect parameters validated against whitelist
+
+See `SECURITY_AUDIT_REPORT.md` for detailed security audit findings.
+
 ## Coding Conventions
 
 - **Entities**: Use Doctrine attributes for ORM mapping
@@ -305,3 +606,4 @@ Key application routes:
 - **Validation**: Use Symfony validators, custom validators in src/Validator/Constraints/
 - **DTOs**: Used for data transfer between layers (src/DTO/)
 - **Enums**: Backed enums for type safety (src/Enum/)
+- **Event Subscribers**: Use EventSubscriberInterface for event handling (src/EventSubscriber/)

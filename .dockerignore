@@ -1,0 +1,69 @@
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Environment and local configuration
+.env.local
+.env.*.local
+.env.test
+.env.prod
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node and frontend development
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# PHP development
+vendor/
+composer.phar
+
+# Symfony cache and logs (will be regenerated in container)
+var/cache/*
+!var/cache/.gitkeep
+var/log/*
+!var/log/.gitkeep
+var/sessions/*
+!var/sessions/.gitkeep
+
+# Data directories (should not be in image)
+var/data/steam-items/import/*
+var/data/steam-items/processed/*
+
+# Testing
+tests/
+phpunit.xml
+phpunit.xml.dist
+.phpunit.result.cache
+
+# Documentation and tasks
+README.md
+CLAUDE.md
+SECURITY_AUDIT_REPORT.md
+tasks/
+docs/
+
+# Docker files (no need to copy these into the image)
+docker-compose.yml
+compose.prod.yml
+Dockerfile
+.dockerignore
+
+# Deployment scripts
+deploy/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*.cache

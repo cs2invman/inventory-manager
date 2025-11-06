@@ -1,0 +1,49 @@
+x-service-defaults: &defaults
+  restart: unless-stopped
+
+services:
+  php:
+    <<: *defaults
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: cs2inventory_php_prod
+    working_dir: /var/www/html
+    volumes:
+      # Only mount directories that need to be writable at runtime
+      - ./var/cache:/var/www/html/var/cache
+      - ./var/log:/var/www/html/var/log
+      - ./var/sessions:/var/www/html/var/sessions
+      - ./var/data:/var/www/html/var/data
+      - ./docker/php/php.prod.ini:/usr/local/etc/php/php.ini
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - APP_ENV=prod
+      - APP_SECRET=${APP_SECRET}
+      - STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
+      - STEAM_WEB_API_BASE_URL=${STEAM_WEB_API_BASE_URL:-https://www.steamwebapi.com/steam/api}
+      - STEAM_ITEMS_STORAGE_PATH=${STEAM_ITEMS_STORAGE_PATH:-var/data/steam-items}
+      - LOCK_DSN=${LOCK_DSN:-flock}
+      - DEFAULT_URI=${DEFAULT_URI:-https://cs2invman.gms.tools}
+    networks:
+      - cs2inventory_network
+
+  nginx:
+    <<: *defaults
+    image: nginx:alpine
+    container_name: cs2inventory_nginx_prod
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      # Only mount necessary directories for serving static files
+      - ./public:/var/www/html/public:ro
+      - ./docker/nginx/production.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php
+    networks:
+      - cs2inventory_network
+
+networks:
+  cs2inventory_network:
+    driver: bridge

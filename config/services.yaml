@@ -50,3 +50,8 @@ services:
     App\Command\SteamSyncItemsCommand:
         arguments:
             $storageBasePath: '%steam_items.storage_path%'
+
+    # Login Rate Limiting
+    App\EventSubscriber\LoginRateLimitSubscriber:
+        arguments:
+            $loginLimiter: '@limiter.login'

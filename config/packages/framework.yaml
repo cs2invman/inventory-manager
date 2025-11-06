@@ -36,3 +36,14 @@ framework:
         # Namespaced pools use the above "app" backend by default
         #pools:
             #my.dedicated.cache: null
+
+    # Rate limiting for login protection against brute force attacks
+    rate_limiter:
+        login:
+            policy: 'sliding_window'
+            limit: 3
+            interval: '5 minutes'
+
+    # Trust proxies for Docker environment to correctly detect client IP
+    trusted_proxies: '127.0.0.1,REMOTE_ADDR'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-port']
