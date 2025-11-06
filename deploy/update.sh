@@ -28,7 +28,7 @@
 #
 ################################################################################
 
-readonly USER="ubuntu"
+readonly USER="gil"
 readonly REPO_BRANCH="master"
 readonly PROJECT_NAME="cs2inventory"
 

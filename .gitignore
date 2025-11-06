@@ -29,7 +29,9 @@ yarn-debug.log*
 yarn-error.log*
 
 ###> Tailwind CSS ###
-/public/build/
+# Build artifacts should be committed for production deployment
+# Uncomment the line below if you want to ignore build files in development:
+# /public/build/
 
 ###> IDE ###
 .idea/
