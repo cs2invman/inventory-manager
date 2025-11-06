@@ -11,20 +11,13 @@ services:
       target: php-development
       args:
         USER: www-data
-        UID: ${USER_ID:-1001}
-        GID: ${GROUP_ID:-1001}
+        UID: 1001
+        GID: 1001
     container_name: cs2inventory_php_dev
     volumes:
-      # Development: mount entire project directory
       - .:/var/www/html
-      # PHP configuration files
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
       - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
-    environment:
-      # Development: override with local MySQL connection
-      - DATABASE_URL=mysql://cs2inventory:cs2inventory@mysql:3306/cs2inventory?serverVersion=8.0
-      - APP_ENV=dev
-      - APP_SECRET=your-secret-key-here
     depends_on:
       - mysql
 
@@ -33,7 +26,6 @@ services:
     ports:
       - "80:80"
     volumes:
-      # Development: mount entire project for live reload
       - .:/var/www/html
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
 
