@@ -49,7 +49,7 @@ RUN mkdir -p /var/www/html/var/log /var/www/html/var/cache /var/www/html/var/ses
 USER $USER
 
 # Install production dependencies (no database needed)
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+RUN APP_ENV=prod composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 
 # Note: cache:clear and cache:warmup are deferred to runtime (entrypoint/first request)
 # These commands require database connectivity and environment variables
