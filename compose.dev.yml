@@ -31,7 +31,7 @@ services:
 
   mysql:
     restart: unless-stopped
-    image: mysql:8.0
+    image: mariadb:11
     container_name: cs2inventory_mysql
     environment:
       MYSQL_ROOT_PASSWORD: root_password

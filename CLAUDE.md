@@ -11,13 +11,13 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 
 - **Backend**: PHP 8.4 + Symfony 7+
 - **Frontend**: Tailwind CSS for styling
-- **Database**: MySQL with Doctrine ORM
+- **Database**: MariaDB 11.x with Doctrine ORM
 - **Containerization**: Docker + Docker Compose for development and deployment
 - **API Integration**: SteamWebAPI.com for CS2 item data
 
 ## CRITICAL: Docker-Only Environment
 
-**⚠️ IMPORTANT: This project MUST run entirely within Docker containers. NEVER run PHP, Composer, MySQL, npm, or any project commands directly on the host machine.**
+**⚠️ IMPORTANT: This project MUST run entirely within Docker containers. NEVER run PHP, Composer, MariaDB, npm, or any project commands directly on the host machine.**
 
 - ✅ Always use: `docker compose exec php php bin/console ...`
 - ✅ Always use: `docker compose run --rm php composer ...`
@@ -198,7 +198,7 @@ All commands in this document are shown with Docker wrappers. If you see a comma
 ### Docker Development Setup
 
 ```bash
-# Start all services (PHP, MySQL, web server)
+# Start all services (PHP, MariaDB, web server)
 docker compose up -d
 
 # Stop all services
@@ -258,7 +258,7 @@ The application uses a multi-stage Dockerfile with separate configurations for d
 
 - **PHP-FPM**: Production-optimized with OPcache enabled, APCu caching, no development tools
 - **Nginx**: Production-optimized with gzip compression, security headers, proper timeouts
-- **External Database**: MySQL 8.0 hosted externally (not containerized)
+- **External Database**: MariaDB 11.x hosted externally (not containerized)
 - **SSL**: Terminated externally via CloudFlare, AWS ALB, or reverse proxy
 
 #### Production Files
@@ -272,10 +272,10 @@ The application uses a multi-stage Dockerfile with separate configurations for d
 
 ### Setting Up Production Environment
 
-#### 1. Prepare External MySQL Database
+#### 1. Prepare External MariaDB Database
 
 ```bash
-# Connect to your MySQL server
+# Connect to your MariaDB server
 mysql -u root -p
 
 # Create database
@@ -289,7 +289,7 @@ GRANT ALL PRIVILEGES ON cs2inventory.* TO 'cs2user'@'%';
 FLUSH PRIVILEGES;
 ```
 
-Ensure the MySQL server is accessible from your Docker host (check firewall rules, security groups, etc.).
+Ensure the MariaDB server is accessible from your Docker host (check firewall rules, security groups, etc.).
 
 #### 2. Configure Environment Variables
 
@@ -312,8 +312,10 @@ Required environment variables:
 
 Example `DATABASE_URL`:
 ```
-mysql://cs2user:YourSecurePassword123!@db.example.com:3306/cs2inventory?serverVersion=8.0&charset=utf8mb4
+mysql://cs2user:YourSecurePassword123!@db.example.com:3306/cs2inventory?serverVersion=mariadb-11.4.8&charset=utf8mb4
 ```
+
+**Important**: Doctrine requires full semantic version (major.minor.patch) for `serverVersion`. The version should match or be slightly behind your production database version. As long as your actual database version is >= the configured version, you're safe.
 
 #### 3. Build Frontend Assets
 
@@ -333,29 +335,29 @@ docker compose run --rm node npm run build
 
 ```bash
 # Build production Docker image
-docker compose -f compose.prod.yml build
+docker compose build
 
 # Start production containers
-docker compose -f compose.prod.yml up -d
+docker compose up -d
 
 # Run database migrations
-docker compose -f compose.prod.yml exec php php bin/console doctrine:migrations:migrate --no-interaction
+docker compose exec php php bin/console doctrine:migrations:migrate --no-interaction
 
 # Verify services are running
-docker compose -f compose.prod.yml ps
+docker compose ps
 ```
 
 #### 5. Verify Production Configuration
 
 ```bash
 # Check PHP OPcache is enabled
-docker compose -f compose.prod.yml exec php php -i | grep opcache.enable
+docker compose exec php php -i | grep opcache.enable
 
 # Check APCu is available
-docker compose -f compose.prod.yml exec php php -i | grep apcu
+docker compose exec php php -i | grep apcu
 
 # Verify database connection
-docker compose -f compose.prod.yml exec php php bin/console doctrine:query:sql "SELECT 1"
+docker compose exec php php bin/console doctrine:query:sql "SELECT 1"
 
 # Check application health
 curl http://localhost/login
@@ -367,18 +369,18 @@ All console commands in production must use the production compose file:
 
 ```bash
 # User management
-docker compose -f compose.prod.yml exec php php bin/console app:create-user
-docker compose -f compose.prod.yml exec php php bin/console app:list-users
+docker compose exec php php bin/console app:create-user
+docker compose exec php php bin/console app:list-users
 
 # Steam data synchronization
-docker compose -f compose.prod.yml exec php php bin/console app:steam:download-items
-docker compose -f compose.prod.yml exec php php bin/console app:steam:sync-items
+docker compose exec php php bin/console app:steam:download-items
+docker compose exec php php bin/console app:steam:sync-items
 
 # Database migrations
-docker compose -f compose.prod.yml exec php php bin/console doctrine:migrations:migrate
+docker compose exec php php bin/console doctrine:migrations:migrate
 
 # Clear cache (required after code changes)
-docker compose -f compose.prod.yml exec php php bin/console cache:clear --env=prod
+docker compose exec php php bin/console cache:clear --env=prod
 ```
 
 ### Production Deployment Workflow
@@ -390,19 +392,19 @@ When deploying code updates to production:
 docker compose run --rm node npm run build
 
 # 2. Rebuild Docker image (includes new code and assets)
-docker compose -f compose.prod.yml build --no-cache
+docker compose build --no-cache
 
 # 3. Stop old containers
-docker compose -f compose.prod.yml down
+docker compose down
 
 # 4. Start new containers
-docker compose -f compose.prod.yml up -d
+docker compose up -d
 
 # 5. Run migrations if needed
-docker compose -f compose.prod.yml exec php php bin/console doctrine:migrations:migrate --no-interaction
+docker compose exec php php bin/console doctrine:migrations:migrate --no-interaction
 
 # 6. Verify deployment
-docker compose -f compose.prod.yml logs -f
+docker compose logs -f
 ```
 
 **Important**: With `opcache.validate_timestamps=0`, code changes require container restart to take effect.
@@ -469,20 +471,20 @@ framework:
 
 ```bash
 # Test database connection from PHP container
-docker compose -f compose.prod.yml exec php php bin/console dbal:run-sql "SELECT 1"
+docker compose exec php php bin/console dbal:run-sql "SELECT 1"
 
-# Check MySQL is accessible from Docker host
-docker compose -f compose.prod.yml exec php mysql -h DB_HOST -u DB_USER -p
+# Check MariaDB is accessible from Docker host
+docker compose exec php mysql -h DB_HOST -u DB_USER -p
 ```
 
 #### OPcache Not Working
 
 ```bash
 # Verify OPcache is enabled and configured
-docker compose -f compose.prod.yml exec php php -i | grep opcache
+docker compose exec php php -i | grep opcache
 
 # Check OPcache statistics
-docker compose -f compose.prod.yml exec php php -r "print_r(opcache_get_status());"
+docker compose exec php php -r "print_r(opcache_get_status());"
 ```
 
 #### Code Changes Not Reflected
@@ -490,15 +492,15 @@ docker compose -f compose.prod.yml exec php php -r "print_r(opcache_get_status()
 With `opcache.validate_timestamps=0`, restart containers after code changes:
 
 ```bash
-docker compose -f compose.prod.yml restart php nginx
+docker compose restart php nginx
 ```
 
 #### Permission Issues
 
 ```bash
 # Fix var directory permissions
-docker compose -f compose.prod.yml exec php chown -R appuser:appuser var/
-docker compose -f compose.prod.yml exec php chmod -R 775 var/
+docker compose exec php chown -R appuser:appuser var/
+docker compose exec php chmod -R 775 var/
 ```
 
 ## Configuration Management
@@ -516,7 +518,7 @@ Key configuration variables:
 
 ### Docker Environment Variables
 
-MySQL configuration in docker-compose.yml:
+MariaDB configuration in docker-compose.yml:
 
 - `MYSQL_ROOT_PASSWORD`: MySQL root password
 - `MYSQL_DATABASE`: Database name (cs2inventory)
