@@ -121,7 +121,7 @@ check_disk_space() {
 check_database_connectivity() {
     log "Checking database connectivity..."
 
-    if docker compose -f compose.prod.yml run --rm php php bin/console dbal:run-sql "SELECT 1" > /dev/null 2>&1; then
+    if docker compose run --rm php php bin/console dbal:run-sql "SELECT 1" > /dev/null 2>&1; then
         log_success "Database connection successful"
     else
         log_error "Database connection failed"
@@ -198,13 +198,9 @@ setup_production_compose() {
 
     cd "${REPO_PATH}"
 
-    # Backup current override if it exists
-    if [ -f "compose.override.yml" ]; then
-        cp -f compose.override.yml compose.override.yml.bak
-    fi
-
-    # Copy prod config as override (Docker Compose auto-merges override files)
+    # Copy production config to override file for automatic merging
     cp -f compose.prod.yml compose.override.yml
+    log "Copied compose.prod.yml to compose.override.yml"
 
     log_success "Production compose configuration ready"
 }
@@ -363,7 +359,8 @@ main() {
     echo "If you need to rollback this deployment:"
     echo "  1. Extract backup: tar -xzf ${BACKUP_DIR}/backup-<timestamp>.tar.gz"
     echo "  2. Or: git reset --hard <previous-commit>"
-    echo "  3. Then: docker compose build --no-cache && docker compose up -d"
+    echo "  3. Setup override: cp compose.prod.yml compose.override.yml"
+    echo "  4. Then: docker compose build --no-cache && docker compose up -d"
     echo ""
 }
 

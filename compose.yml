@@ -1,0 +1,26 @@
+x-service-defaults: &defaults
+  restart: unless-stopped
+
+services:
+  php:
+    <<: *defaults
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cs2inventory_php
+    working_dir: /var/www/html
+    networks:
+      - cs2inventory_network
+
+  nginx:
+    <<: *defaults
+    image: nginx:alpine
+    container_name: cs2inventory_nginx
+    depends_on:
+      - php
+    networks:
+      - cs2inventory_network
+
+networks:
+  cs2inventory_network:
+    driver: bridge

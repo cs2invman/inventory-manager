@@ -1,46 +1,38 @@
-x-service-defaults: &defaults
-  restart: unless-stopped
+# Development overrides
+# Usage: docker compose -f compose.yml -f compose.dev.yml up
+# Or set: export COMPOSE_FILE=compose.yml:compose.dev.yml
 
 services:
   php:
-    <<: *defaults
     build:
-      context: .
-      dockerfile: Dockerfile
       target: development
       args:
         USER_ID: ${USER_ID:-1001}
         GROUP_ID: ${GROUP_ID:-1001}
-    container_name: cs2inventory_php
-    working_dir: /var/www/html
+    container_name: cs2inventory_php_dev
     volumes:
+      # Development: mount entire project directory
       - .:/var/www/html
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
     environment:
+      # Development: override with local MySQL connection
       - DATABASE_URL=mysql://cs2inventory:cs2inventory@mysql:3306/cs2inventory?serverVersion=8.0
       - APP_ENV=dev
       - APP_SECRET=your-secret-key-here
     depends_on:
       - mysql
-    networks:
-      - cs2inventory_network
 
   nginx:
-    <<: *defaults
-    image: nginx:alpine
-    container_name: cs2inventory_nginx
+    container_name: cs2inventory_nginx_dev
     ports:
       - "80:80"
     volumes:
+      # Development: mount entire project for live reload
       - .:/var/www/html
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      - php
-    networks:
-      - cs2inventory_network
 
   mysql:
-    <<: *defaults
+    restart: unless-stopped
     image: mysql:8.0
     container_name: cs2inventory_mysql
     environment:
@@ -57,7 +49,7 @@ services:
       - cs2inventory_network
 
   node:
-    <<: *defaults
+    restart: unless-stopped
     image: node:18-alpine
     container_name: cs2inventory_node
     working_dir: /var/www/html
@@ -71,7 +63,3 @@ services:
 
 volumes:
   mysql_data:
-
-networks:
-  cs2inventory_network:
-    driver: bridge

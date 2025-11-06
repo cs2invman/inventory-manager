@@ -2,6 +2,35 @@
 
 This guide covers deploying the CS2 Inventory Management System to a production server.
 
+## Docker Compose Structure
+
+The project uses a flexible Docker Compose configuration:
+
+- **`compose.yml`**: Base configuration (minimal service definitions)
+- **`compose.dev.yml`**: Development overrides (MySQL, dev builds, local volumes)
+- **`compose.prod.yml`**: Production overrides (prod builds, external DB, optimized volumes)
+- **`compose.override.yml`**: Generated file (gitignored) - copied from prod/dev as needed
+
+**How it works:**
+
+- **Development**:
+  ```bash
+  docker compose -f compose.yml -f compose.dev.yml up
+  # Or set: export COMPOSE_FILE=compose.yml:compose.dev.yml
+  ```
+- **Production**:
+  ```bash
+  # Deployment script copies compose.prod.yml to compose.override.yml
+  docker compose up  # Automatically merges compose.yml + compose.override.yml
+  ```
+
+**Benefits:**
+
+- Clean separation of environments (dev and prod committed to git)
+- Override file is generated per environment (not committed)
+- Production uses simple `docker compose up` (no `-f` flags)
+- MySQL only in `compose.dev.yml`, never in production
+
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
@@ -262,7 +291,7 @@ Total:        63s
 1. Verify DATABASE_URL in `.env` is correct
 2. Test connection manually:
    ```bash
-   docker compose -f compose.prod.yml run --rm php php bin/console dbal:run-sql "SELECT 1"
+   docker compose run --rm php php bin/console dbal:run-sql "SELECT 1"
    ```
 3. Check MySQL server is accessible:
    ```bash
@@ -357,6 +386,9 @@ ls -lh backups/
 # Extract the backup (this will overwrite current files)
 tar -xzf backups/backup-20251105-143022.tar.gz
 
+# Setup production override
+cp compose.prod.yml compose.override.yml
+
 # Rebuild and restart
 docker compose build --no-cache
 docker compose up -d
@@ -372,6 +404,9 @@ git log --oneline -10
 
 # Reset to previous commit
 git reset --hard <commit-hash>
+
+# Setup production override
+cp compose.prod.yml compose.override.yml
 
 # Rebuild and restart
 docker compose build --no-cache

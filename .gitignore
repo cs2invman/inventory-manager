@@ -43,6 +43,7 @@ Thumbs.db
 
 ###> Docker ###
 .docker/
+compose.override.yml
 
 ###> Application Specific ###
 /storage/logs/

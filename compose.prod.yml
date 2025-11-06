@@ -1,9 +1,9 @@
-x-service-defaults: &defaults
-  restart: unless-stopped
+# Production overrides
+# Copied to compose.override.yml by deployment script for automatic merging
+# Usage: cp compose.prod.yml compose.override.yml && docker compose up
 
 services:
   php:
-    <<: *defaults
     build:
       context: .
       dockerfile: Dockerfile
@@ -30,8 +30,6 @@ services:
       - cs2inventory_network
 
   nginx:
-    <<: *defaults
-    image: nginx:alpine
     container_name: cs2inventory_nginx_prod
     ports:
       - "9003:80"
@@ -43,7 +41,3 @@ services:
       - php
     networks:
       - cs2inventory_network
-
-networks:
-  cs2inventory_network:
-    driver: bridge
