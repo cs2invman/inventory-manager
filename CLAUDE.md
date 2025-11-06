@@ -232,8 +232,36 @@ docker compose exec php php bin/console app:list-users
 
 # Steam data synchronization (chunked for memory efficiency)
 docker compose exec php php bin/console app:steam:download-items  # Downloads chunks
-docker compose exec php php bin/console app:steam:sync-items      # Syncs chunks to DB
+docker compose exec php php bin/console app:steam:sync-items      # Syncs chunks to DB (cron-optimized)
 ```
+
+### Cron Jobs
+
+The `app:steam:sync-items` command is optimized for cron-based execution. It processes all chunk files in `var/data/steam-items/import` and exits silently when no files are found (perfect for running every minute).
+
+**Setup cron for automated sync:**
+
+```bash
+# Edit crontab
+crontab -e
+
+# Run sync every minute (silent when no files to process)
+* * * * * cd /path/to/project && docker compose exec -T php php bin/console app:steam:sync-items >> var/log/steam-sync.log 2>&1
+
+# Alternative: Run every 5 minutes for less aggressive processing
+*/5 * * * * cd /path/to/project && docker compose exec -T php php bin/console app:steam:sync-items >> var/log/steam-sync.log 2>&1
+```
+
+**Memory Management:**
+- Processes files with aggressive memory cleanup between chunks
+- Configurable via environment variables: `SYNC_BATCH_SIZE`, `SYNC_MEMORY_LIMIT`, `SYNC_MEMORY_WARNING_THRESHOLD`
+- Successfully processed files moved to `var/data/steam-items/processed`
+- Failed files remain in import directory for retry
+
+**Error Handling:**
+- Per-file error handling: one failed file doesn't stop processing of remaining files
+- Detailed logging for monitoring and debugging
+- Exit code 0 (success) when no files found or all files processed successfully
 
 ### Database Operations (Docker)
 
@@ -515,6 +543,9 @@ Key configuration variables:
 - `STEAM_WEB_API_KEY`: API key for SteamWebAPI.com
 - `STEAM_WEB_API_BASE_URL`: Base URL for SteamWebAPI (https://www.steamwebapi.com/steam/api)
 - `STEAM_ITEMS_STORAGE_PATH`: Local path for chunk storage (var/data/steam-items with import/ and processed/ subdirs)
+- `SYNC_BATCH_SIZE`: Items per transaction during sync (default: 25)
+- `SYNC_MEMORY_LIMIT`: Memory limit for sync command (default: 768M)
+- `SYNC_MEMORY_WARNING_THRESHOLD`: Log warning when memory usage exceeds this percentage (default: 80)
 
 ### Docker Environment Variables
 

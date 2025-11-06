@@ -58,6 +58,9 @@ class ItemSyncService
         $jsonContent = file_get_contents($filePath);
         $itemsData = json_decode($jsonContent, true);
 
+        // Explicitly free JSON content string to reduce memory usage
+        unset($jsonContent);
+
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \RuntimeException('Invalid JSON file: ' . json_last_error_msg());
         }
@@ -79,7 +82,8 @@ class ItemSyncService
         $processedExternalIds = [];
 
         // Process in smaller independent batches to avoid memory issues
-        $batchSize = 50;
+        // Reduced from 50 to 25 for better memory efficiency during chunked processing
+        $batchSize = 25;
 
         for ($batchStart = 0; $batchStart < $stats['total']; $batchStart += $batchSize) {
             // Begin transaction for this batch
@@ -156,6 +160,9 @@ class ItemSyncService
             }
         }
 
+        // Free items data array to reduce memory
+        unset($itemsData);
+
         // Deactivate items not in the current sync (separate transaction)
         // Skip this step if deferred deactivation is enabled (for chunked processing)
         if (!$deferDeactivation) {
@@ -163,6 +170,9 @@ class ItemSyncService
                 $this->entityManager->beginTransaction();
                 $stats['deactivated'] = $this->deactivateMissingItems($processedExternalIds);
                 $this->entityManager->commit();
+
+                // Clear entity manager after deactivation
+                $this->entityManager->clear();
             } catch (\Throwable $e) {
                 if ($this->entityManager->getConnection()->isTransactionActive()) {
                     $this->entityManager->rollback();
@@ -170,6 +180,8 @@ class ItemSyncService
                 $this->logger->warning('Failed to deactivate missing items', [
                     'error' => $e->getMessage(),
                 ]);
+                // Clear entity manager even on failure
+                $this->entityManager->clear();
             }
         }
 
