@@ -15,6 +15,19 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 - **Containerization**: Docker + Docker Compose for development and deployment
 - **API Integration**: SteamWebAPI.com for CS2 item data
 
+## CRITICAL: Docker-Only Environment
+
+**⚠️ IMPORTANT: This project MUST run entirely within Docker containers. NEVER run PHP, Composer, MySQL, npm, or any project commands directly on the host machine.**
+
+- ✅ Always use: `docker compose exec php php bin/console ...`
+- ✅ Always use: `docker compose run --rm php composer ...`
+- ✅ Always use: `docker compose run --rm node npm ...`
+- ❌ Never use: `php bin/console ...` (bare command)
+- ❌ Never use: `composer ...` (bare command)
+- ❌ Never use: `npm ...` (bare command)
+
+All commands in this document are shown with Docker wrappers. If you see a command without `docker compose`, it is an error.
+
 ## Core Architecture
 
 ### Entity Relationships
@@ -117,18 +130,6 @@ values, stickers, keychains), view market prices, and manage items in virtual st
 
 - CRUD operations and business logic for their respective domains
 
-### Available Console Commands
-
-```bash
-# User management
-php bin/console app:create-user
-php bin/console app:list-users
-
-# Steam data synchronization (chunked for memory efficiency)
-php bin/console app:steam:download-items  # Downloads 5500 items/chunk to var/data/steam-items/import/
-php bin/console app:steam:sync-items      # Syncs chunks from import/ to DB, moves to processed/
-```
-
 ### Current Features
 
 1. **Authentication System**
@@ -218,7 +219,7 @@ docker compose exec php php bin/console doctrine:migrations:migrate
 docker compose run --rm node npm install
 docker compose run --rm node npm run build
 
-# Watch for changes during development (run locally)
+# Watch for changes during development
 docker compose run --rm node npm run watch
 ```
 
@@ -316,14 +317,14 @@ mysql://cs2user:YourSecurePassword123!@db.example.com:3306/cs2inventory?serverVe
 
 #### 3. Build Frontend Assets
 
-Assets must be built locally BEFORE deploying to production:
+Assets must be built BEFORE deploying to production (using Node container):
 
 ```bash
-# Install dependencies (locally or in Node container)
-npm install
+# Install dependencies (using Node container)
+docker compose run --rm node npm install
 
-# Build production assets
-npm run build
+# Build production assets (using Node container)
+docker compose run --rm node npm run build
 
 # Assets will be in public/build/ and copied to Docker image
 ```
@@ -385,8 +386,8 @@ docker compose -f compose.prod.yml exec php php bin/console cache:clear --env=pr
 When deploying code updates to production:
 
 ```bash
-# 1. Build assets locally
-npm run build
+# 1. Build assets (using Node container)
+docker compose run --rm node npm run build
 
 # 2. Rebuild Docker image (includes new code and assets)
 docker compose -f compose.prod.yml build --no-cache
