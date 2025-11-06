@@ -6,7 +6,12 @@ services:
     <<: *defaults
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/php/Dockerfile
+      target: php-production
+      args:
+        USER: www-data
+        UID: 1000
+        GID: 1000
     container_name: cs2inventory_php
     working_dir: /var/www/html
     networks:

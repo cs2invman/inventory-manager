@@ -1,19 +1,25 @@
-# Development overrides
+# Development overrides (explicit use)
+# This file is for explicit development setup with -f flag
 # Usage: docker compose -f compose.yml -f compose.dev.yml up
-# Or set: export COMPOSE_FILE=compose.yml:compose.dev.yml
+#
+# Note: compose.override.yml is auto-loaded, so this file is optional
+# Use this file if you want to explicitly control which override is loaded
 
 services:
   php:
     build:
-      target: development
+      target: php-development
       args:
-        USER_ID: ${USER_ID:-1001}
-        GROUP_ID: ${GROUP_ID:-1001}
+        USER: www-data
+        UID: ${USER_ID:-1001}
+        GID: ${GROUP_ID:-1001}
     container_name: cs2inventory_php_dev
     volumes:
       # Development: mount entire project directory
       - .:/var/www/html
+      # PHP configuration files
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+      - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
     environment:
       # Development: override with local MySQL connection
       - DATABASE_URL=mysql://cs2inventory:cs2inventory@mysql:3306/cs2inventory?serverVersion=8.0

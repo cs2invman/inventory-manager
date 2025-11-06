@@ -1,13 +1,20 @@
 # Production overrides
-# Copied to compose.override.yml by deployment script for automatic merging
-# Usage: cp compose.prod.yml compose.override.yml && docker compose up
+# Usage: docker compose -f compose.yml -f compose.prod.yml up -d
+#
+# Alternative (for deployment automation):
+# Copy this to compose.override.yml: cp compose.prod.yml compose.override.yml
+# Then run: docker compose up -d
 
 services:
   php:
     build:
       context: .
-      dockerfile: Dockerfile
-      target: production
+      dockerfile: docker/php/Dockerfile
+      target: php-production
+      args:
+        USER: www-data
+        UID: 1000
+        GID: 1000
     container_name: cs2inventory_php_prod
     working_dir: /var/www/html
     volumes:
