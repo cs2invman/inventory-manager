@@ -147,7 +147,7 @@ The `app:steam:sync-items` command is cron-optimized: processes files in `var/da
 - `SYNC_MEMORY_LIMIT`: Memory limit for sync (default: 768M)
 - `SYNC_MEMORY_WARNING_THRESHOLD`: Log warning % (default: 80)
 
-### Docker Variables (docker-compose.yml)
+### Docker Variables (compose.yml, compose.dev.yml for dev)
 
 - `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`
 

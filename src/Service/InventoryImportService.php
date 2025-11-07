@@ -645,11 +645,15 @@ class InventoryImportService
         foreach ($assetProperties as $property) {
             $propertyId = $property['propertyid'] ?? null;
 
+            // Extract float value (paint wear)
             if ($propertyId == 2 && isset($property['float_value'])) {
                 $result['float_value'] = (float) $property['float_value'];
             }
 
-            if ($propertyId == 1 && isset($property['int_value'])) {
+            // Extract pattern index for weapons (Paint Seed) and charms (Charm Template)
+            // propertyid 1 = Paint Seed (weapons)
+            // propertyid 3 = Charm Template (keychains)
+            if (in_array($propertyId, [1, 3]) && isset($property['int_value'])) {
                 $result['pattern_index'] = (int) $property['int_value'];
             }
         }

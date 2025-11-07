@@ -192,6 +192,8 @@
                         priceValue: itemData.priceValue,
                         stickersWithPrices: itemData.stickersWithPrices,
                         keychainWithPrice: itemData.keychainWithPrice,
+                        quantity: itemData.quantity|default(1),
+                        aggregatePrice: itemData.aggregatePrice|default(itemData.priceValue),
                         mode: 'with-storage-badge',
                         userConfig: userConfig
                     } %}

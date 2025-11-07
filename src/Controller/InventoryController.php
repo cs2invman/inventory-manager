@@ -198,9 +198,66 @@ class InventoryController extends AbstractController
             ];
         }
 
-        // Sort by price descending
+        // Group items by item ID if they are groupable
+        $groupedItems = [];
+        $ungroupedItems = [];
+
+        foreach ($itemsWithPrices as $itemData) {
+            $itemUser = $itemData['itemUser'];
+            $item = $itemUser->getItem();
+
+            if ($this->isGroupableItem($item) && !$this->hasCustomizations($itemUser)) {
+                // Group by item ID
+                $itemId = $item->getId();
+
+                if (!isset($groupedItems[$itemId])) {
+                    $groupedItems[$itemId] = [
+                        'item' => $item,
+                        'latestPrice' => $itemData['latestPrice'],
+                        'unitPrice' => $itemData['priceValue'],
+                        'items' => [],
+                        'quantity' => 0,
+                        'aggregatePrice' => 0.0,
+                    ];
+                }
+
+                $groupedItems[$itemId]['items'][] = $itemUser;
+                $groupedItems[$itemId]['quantity']++;
+                $groupedItems[$itemId]['aggregatePrice'] += $itemData['itemTotalValue'];
+            } else {
+                // Keep as individual item
+                $itemData['quantity'] = 1;
+                $itemData['aggregatePrice'] = $itemData['itemTotalValue'];
+                $ungroupedItems[] = $itemData;
+            }
+        }
+
+        // Convert grouped items to same format as ungrouped
+        $finalGroupedItems = [];
+        foreach ($groupedItems as $groupData) {
+            $finalGroupedItems[] = [
+                'item' => $groupData['item'],
+                'latestPrice' => $groupData['latestPrice'],
+                'priceValue' => $groupData['unitPrice'],
+                'quantity' => $groupData['quantity'],
+                'aggregatePrice' => $groupData['aggregatePrice'],
+                'isGrouped' => true,
+                // For grouped items, we'll use the first ItemUser for display purposes
+                'itemUser' => $groupData['items'][0],
+                'stickersWithPrices' => [], // Grouped items won't have stickers
+                'keychainWithPrice' => null,
+                'stickersTotalValue' => 0.0,
+                'keychainPriceValue' => 0.0,
+                'itemTotalValue' => $groupData['aggregatePrice'],
+            ];
+        }
+
+        // Merge grouped and ungrouped items
+        $itemsWithPrices = array_merge($finalGroupedItems, $ungroupedItems);
+
+        // Sort by aggregate price descending
         usort($itemsWithPrices, function ($a, $b) {
-            return $b['priceValue'] <=> $a['priceValue'];
+            return $b['aggregatePrice'] <=> $a['aggregatePrice'];
         });
 
         return $this->render('inventory/index.html.twig', [
@@ -215,5 +272,49 @@ class InventoryController extends AbstractController
             'currentBoxId' => $filterBoxId,
             'userConfig' => $user->getConfig(),
         ]);
+    }
+
+    /**
+     * Check if an item is groupable (cases, capsules, stickers, etc.)
+     */
+    private function isGroupableItem(\App\Entity\Item $item): bool
+    {
+        $name = strtolower($item->getName() ?? '');
+
+        // Group if item name contains these keywords AND has no customizations
+        $groupableKeywords = [
+            'case',
+            'capsule',
+            'sticker |',         // Stickers
+            'patch |',           // Patches
+            'graffiti |',
+            'music kit |',
+            'sealed graffiti |',
+            'charm |',           // Charms/Keychains (only those without patterns)
+        ];
+
+        foreach ($groupableKeywords as $keyword) {
+            if (str_contains($name, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if an item has customizations that prevent grouping
+     */
+    private function hasCustomizations(\App\Entity\ItemUser $itemUser): bool
+    {
+        // Don't group if item has any unique properties
+        return $itemUser->getFloatValue() !== null
+            || $itemUser->getPaintSeed() !== null      // Pattern index
+            || $itemUser->getPatternIndex() !== null   // Alternative pattern field
+            || $itemUser->getStickers() !== null       // Items with stickers applied
+            || $itemUser->getNameTag() !== null        // Custom name tags
+            || $itemUser->isStattrak()                 // StatTrak items
+            || $itemUser->isSouvenir();                // Souvenir items
+        // Note: keychain/charm is NOT checked here - charms can be grouped if they have no other unique properties
     }
 }

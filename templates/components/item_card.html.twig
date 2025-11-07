@@ -13,7 +13,8 @@
     - itemId: Unique identifier for checkbox (optional)
     - rarity: Item rarity for filtering (optional)
     - type: Item type for filtering (optional)
-    - priceValue: Price value for filtering (optional)
+    - quantity: Quantity of grouped items (optional, default: 1)
+    - aggregatePrice: Total price for grouped items (optional, default: priceValue)
     - userConfig: UserConfig entity for currency formatting (optional)
 
     Blocks:
@@ -61,6 +62,15 @@
 
     {# Custom Badges Block #}
     {% block badges %}{% endblock %}
+
+    {# Quantity Badge for Grouped Items #}
+    {% if quantity|default(1) > 1 %}
+        <div class="absolute top-2 right-2 z-10">
+            <span class="inline-flex items-center justify-center bg-cs2-orange text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg min-w-[3rem]">
+                ×{{ quantity }}
+            </span>
+        </div>
+    {% endif %}
 
     {# Item Name #}
     <h3 class="font-semibold text-white text-sm line-clamp-2 group-hover:text-cs2-orange transition-colors mb-3" title="{{ item.name }}">
@@ -152,33 +162,68 @@
 
     {# Item Details #}
     <div class="space-y-2">
-        {# Wear/Float and Price Row #}
-        <div class="flex items-center justify-between text-xs">
-            {# Left: Wear, Float, and Pattern #}
-            <div class="flex items-center gap-2">
-                {% if itemUser.wearCategory %}
-                    <span class="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{{ itemUser.wearCategory }}</span>
-                {% endif %}
-                {% if itemUser.floatValue %}
-                    <span class="text-gray-300 font-mono ml-1">{{ itemUser.floatValue }}</span>
-                {% endif %}
-                {% if itemUser.patternIndex %}
-                    <span class="text-gray-300 font-mono ml-1">[{{ itemUser.patternIndex }}]</span>
-                {% endif %}
-            </div>
+        {# Wear/Float and Pattern Row (for non-grouped items) #}
+        {% if quantity|default(1) == 1 %}
+            <div class="flex items-center justify-between text-xs">
+                {# Left: Wear, Float, and Pattern #}
+                <div class="flex items-center gap-2">
+                    {% if itemUser.wearCategory %}
+                        <span class="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{{ itemUser.wearCategory }}</span>
+                    {% endif %}
+                    {% if itemUser.floatValue %}
+                        <span class="text-gray-300 font-mono ml-1">{{ itemUser.floatValue }}</span>
+                    {% endif %}
+                    {% if itemUser.paintSeed %}
+                        <span class="text-gray-300 font-mono ml-1">#{{ itemUser.paintSeed }}</span>
+                    {% elseif itemUser.patternIndex %}
+                        <span class="text-gray-300 font-mono ml-1">#{{ itemUser.patternIndex }}</span>
+                    {% endif %}
+                </div>
 
-            {# Right: Price #}
-            <span class="text-green-400 font-bold text-lg">
-                {% if latestPrice and priceValue is not null %}
-                    {{ priceValue|format_price(
-                        userConfig ? userConfig.preferredCurrency : 'USD',
-                        userConfig ? userConfig.cadExchangeRate : 1.0
-                    ) }}
-                {% else %}
-                    <span class="text-gray-500">N/A</span>
-                {% endif %}
-            </span>
-        </div>
+                {# Right: Price #}
+                <span class="text-green-400 font-bold text-lg">
+                    {% if latestPrice and priceValue is not null %}
+                        {{ priceValue|format_price(
+                            userConfig ? userConfig.preferredCurrency : 'USD',
+                            userConfig ? userConfig.cadExchangeRate : 1.0
+                        ) }}
+                    {% else %}
+                        <span class="text-gray-500">N/A</span>
+                    {% endif %}
+                </span>
+            </div>
+        {% else %}
+            {# Grouped items: Show quantity × unit price = aggregate #}
+            <div class="flex items-center justify-between text-xs">
+                {# Left: Quantity × Unit Price #}
+                <div class="flex items-center gap-1 text-gray-300">
+                    <span class="font-bold text-white">{{ quantity }}</span>
+                    <span>×</span>
+                    <span>
+                        {% if latestPrice and priceValue is not null %}
+                            {{ priceValue|format_price(
+                                userConfig ? userConfig.preferredCurrency : 'USD',
+                                userConfig ? userConfig.cadExchangeRate : 1.0
+                            ) }}
+                        {% else %}
+                            <span class="text-gray-500">N/A</span>
+                        {% endif %}
+                    </span>
+                </div>
+
+                {# Right: Aggregate Price #}
+                <span class="text-green-400 font-bold text-lg">
+                    {% if latestPrice and aggregatePrice|default(priceValue) is not null %}
+                        {{ aggregatePrice|default(priceValue)|format_price(
+                            userConfig ? userConfig.preferredCurrency : 'USD',
+                            userConfig ? userConfig.cadExchangeRate : 1.0
+                        ) }}
+                    {% else %}
+                        <span class="text-gray-500">N/A</span>
+                    {% endif %}
+                </span>
+            </div>
+        {% endif %}
 
         {# Name Tag #}
         {% if itemUser.nameTag %}
