@@ -792,14 +792,55 @@ class InventoryImportService
     {
         $itemType = $this->extractItemType($description);
 
-        // Skip non-tradeable item types (including storage boxes - handled separately)
+        // Special handling for graffiti: allow sealed graffiti, skip unsealed
+        if (in_array($itemType, ['CSGO_Type_Spray', 'Type_Spray'])) {
+            $marketHashName = $description['market_hash_name'] ?? '';
+
+            // Sealed graffiti have "Sealed Graffiti" in their market hash name
+            if (str_contains($marketHashName, 'Sealed Graffiti')) {
+                $this->logger->debug('Allowing sealed graffiti import', [
+                    'name' => $description['name'] ?? 'Unknown',
+                    'market_hash_name' => $marketHashName,
+                ]);
+                return false; // Do NOT skip - allow import
+            }
+
+            // Unsealed graffiti (consumable spray charges) - skip
+            $this->logger->debug('Skipping unsealed graffiti', [
+                'name' => $description['name'] ?? 'Unknown',
+                'market_hash_name' => $marketHashName,
+            ]);
+            return true; // Skip
+        }
+
+        // Special handling for tools: skip Storage Units, allow tradeable tools
+        if (in_array($itemType, ['CSGO_Type_Tool', 'Type_Tool'])) {
+            $name = $description['name'] ?? '';
+            $marketHashName = $description['market_hash_name'] ?? '';
+
+            // Storage Units are handled separately by StorageBoxService
+            if (str_contains($name, 'Storage Unit') || str_contains($marketHashName, 'Storage Unit')) {
+                $this->logger->debug('Skipping Storage Unit (handled separately)', [
+                    'name' => $name,
+                    'market_hash_name' => $marketHashName,
+                ]);
+                return true; // Skip Storage Units
+            }
+
+            // Allow other tradeable tools
+            $this->logger->debug('Allowing tradeable tool import', [
+                'name' => $name,
+                'market_hash_name' => $marketHashName,
+            ]);
+            return false; // Do NOT skip
+        }
+
+        // Skip non-tradeable item types (collectibles only)
+        // Note: Music kits removed - they're all tradeable
+        // Note: Tools removed - handled with special logic above
         $skipTypes = [
-            'CSGO_Type_Tool',              // Storage Units and other tools
             'CSGO_Type_Collectible',       // Medals, Coins, Badges
-            'CSGO_Type_MusicKit',          // Music Kits
-            'CSGO_Type_Spray',             // Graffiti
             'Type_Collectible',            // Alternative collectible type
-            'Type_Spray',                  // Alternative spray type
         ];
 
         if (in_array($itemType, $skipTypes)) {
