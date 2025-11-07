@@ -14,6 +14,7 @@
     - rarity: Item rarity for filtering (optional)
     - type: Item type for filtering (optional)
     - priceValue: Price value for filtering (optional)
+    - userConfig: UserConfig entity for currency formatting (optional)
 
     Blocks:
     - badges: Override/add custom badges
@@ -117,7 +118,7 @@
                         target="_blank"
                         rel="noopener noreferrer"
                         class="hover:opacity-75 transition-opacity"
-                        title="Keychain: {{ keychainWithPrice.name }} (${{ keychainWithPrice.price|number_format(2, '.', ',') }})"
+                        title="Keychain: {{ keychainWithPrice.name }} ({{ keychainWithPrice.price|format_price(userConfig ? userConfig.preferredCurrency : 'USD', userConfig ? userConfig.cadExchangeRate : 1.0) }})"
                     >
                         <img
                             src="{{ keychainWithPrice.image_url }}"
@@ -135,7 +136,7 @@
                             target="_blank"
                             rel="noopener noreferrer"
                             class="hover:opacity-75 transition-opacity"
-                            title="{{ sticker.name }} (${{ sticker.price|number_format(2, '.', ',') }})"
+                            title="{{ sticker.name }} ({{ sticker.price|format_price(userConfig ? userConfig.preferredCurrency : 'USD', userConfig ? userConfig.cadExchangeRate : 1.0) }})"
                         >
                             <img
                                 src="{{ sticker.image_url }}"
@@ -169,7 +170,10 @@
             {# Right: Price #}
             <span class="text-green-400 font-bold text-lg">
                 {% if latestPrice and priceValue is not null %}
-                    ${{ priceValue|number_format(2, '.', ',') }}
+                    {{ priceValue|format_price(
+                        userConfig ? userConfig.preferredCurrency : 'USD',
+                        userConfig ? userConfig.cadExchangeRate : 1.0
+                    ) }}
                 {% else %}
                     <span class="text-gray-500">N/A</span>
                 {% endif %}

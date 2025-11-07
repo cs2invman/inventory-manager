@@ -149,4 +149,80 @@ class UserConfigService
             'tradeLocked' => $baseUrl . '/16?l=english&count=999', // Context ID 16 = trade-locked items
         ];
     }
+
+    /**
+     * Set user's currency preferences.
+     *
+     * @throws \InvalidArgumentException if currency or exchange rate is invalid
+     */
+    public function setCurrencyPreferences(
+        User $user,
+        string $currency,
+        float $exchangeRate
+    ): void {
+        $this->validateCurrency($currency);
+        $this->validateExchangeRate($exchangeRate);
+
+        $config = $this->getUserConfig($user);
+        $config->setPreferredCurrency($currency);
+        $config->setCadExchangeRate($exchangeRate);
+        $config->setUpdatedAt(new \DateTimeImmutable());
+
+        $this->entityManager->flush();
+    }
+
+    /**
+     * Get user's preferred currency (defaults to USD if not set).
+     */
+    public function getPreferredCurrency(User $user): string
+    {
+        $config = $this->getUserConfig($user);
+        return $config->getPreferredCurrency() ?? 'USD';
+    }
+
+    /**
+     * Get user's CAD exchange rate (defaults to 1.38 if not set).
+     */
+    public function getCadExchangeRate(User $user): float
+    {
+        $config = $this->getUserConfig($user);
+        return $config->getCadExchangeRate() ?? 1.38;
+    }
+
+    /**
+     * Validate currency code.
+     *
+     * @throws \InvalidArgumentException if currency is not supported
+     */
+    private function validateCurrency(string $currency): void
+    {
+        $allowedCurrencies = ['USD', 'CAD'];
+
+        if (!in_array($currency, $allowedCurrencies, true)) {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'Invalid currency "%s". Allowed values: %s',
+                    $currency,
+                    implode(', ', $allowedCurrencies)
+                )
+            );
+        }
+    }
+
+    /**
+     * Validate exchange rate.
+     *
+     * @throws \InvalidArgumentException if exchange rate is out of range
+     */
+    private function validateExchangeRate(float $exchangeRate): void
+    {
+        if ($exchangeRate < 0.01 || $exchangeRate > 10.00) {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'Exchange rate must be between 0.01 and 10.00, got: %s',
+                    $exchangeRate
+                )
+            );
+        }
+    }
 }

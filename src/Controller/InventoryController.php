@@ -213,6 +213,7 @@ class InventoryController extends AbstractController
             'storedItemsCount' => $storedItemsCount,
             'currentFilter' => $filter,
             'currentBoxId' => $filterBoxId,
+            'userConfig' => $user->getConfig(),
         ]);
     }
 }

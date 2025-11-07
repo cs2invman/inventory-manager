@@ -61,6 +61,7 @@ class StorageBoxController extends AbstractController
             return $this->render('storage_box/deposit_preview.html.twig', [
                 'storageBox' => $storageBox,
                 'preview' => $preview,
+                'userConfig' => $user->getConfig(),
             ]);
         } catch (\Exception $e) {
             $this->addFlash('error', 'Failed to process deposit: ' . $e->getMessage());
@@ -150,6 +151,7 @@ class StorageBoxController extends AbstractController
             return $this->render('storage_box/withdraw_preview.html.twig', [
                 'storageBox' => $storageBox,
                 'preview' => $preview,
+                'userConfig' => $user->getConfig(),
             ]);
         } catch (\Exception $e) {
             $this->addFlash('error', 'Failed to process withdrawal: ' . $e->getMessage());

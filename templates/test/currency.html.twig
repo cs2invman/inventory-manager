@@ -1,0 +1,40 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+<div class="p-8">
+    <h1 class="text-2xl font-bold mb-6">Currency Filter Test</h1>
+
+    <div class="space-y-8">
+        <div>
+            <h2 class="text-xl font-semibold mb-3">USD Tests</h2>
+            <div class="space-y-2">
+                <p>$10.00: <span class="font-mono">{{ 10.00|format_price('USD', 1.0) }}</span></p>
+                <p>$1,234.56: <span class="font-mono">{{ 1234.56|format_price('USD', 1.0) }}</span></p>
+                <p>$0.00: <span class="font-mono">{{ 0|format_price('USD', 1.0) }}</span></p>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-xl font-semibold mb-3">CAD Tests (1.38 exchange rate)</h2>
+            <div class="space-y-2">
+                <p>$10.00 → CA$13.80: <span class="font-mono">{{ 10.00|format_price('CAD', 1.38) }}</span></p>
+                <p>$1,234.56 → CA$1,703.69: <span class="font-mono">{{ 1234.56|format_price('CAD', 1.38) }}</span></p>
+                <p>$0.00 → CA$0.00: <span class="font-mono">{{ 0|format_price('CAD', 1.38) }}</span></p>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-xl font-semibold mb-3">Edge Cases</h2>
+            <div class="space-y-2">
+                <p>Null price: <span class="font-mono">{{ null|format_price('USD', 1.0) }}</span></p>
+                <p>Default params (USD): <span class="font-mono">{{ 10.00|format_price() }}</span></p>
+                <p>Large number: <span class="font-mono">{{ 12345.67|format_price('CAD', 1.38) }}</span></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8">
+        <a href="{{ path('app_dashboard') }}" class="text-blue-500 hover:underline">← Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

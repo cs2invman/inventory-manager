@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Form\CurrencyPreferencesType;
 use App\Form\SteamIdType;
 use App\Service\UserConfigService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -34,51 +35,53 @@ class UserSettingsController extends AbstractController
         $user = $this->getUser();
         $config = $this->userConfigService->getUserConfig($user);
 
-        // Get current Steam ID
-        $currentSteamId = $config->getSteamId();
-
-        // Create form
-        $form = $this->createForm(SteamIdType::class, [
-            'steamId' => $currentSteamId,
+        // Steam ID Form (existing)
+        $steamIdForm = $this->createForm(SteamIdType::class, [
+            'steamId' => $config->getSteamId(),
         ]);
 
-        $form->handleRequest($request);
+        // Currency Preferences Form (new)
+        $currencyForm = $this->createForm(CurrencyPreferencesType::class, [
+            'preferredCurrency' => $config->getPreferredCurrency() ?? 'USD',
+            'cadExchangeRate' => $config->getCadExchangeRate() ?? 1.38,
+        ]);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            $data = $form->getData();
-            $steamId = $data['steamId'];
-
+        // Handle Steam ID form
+        $steamIdForm->handleRequest($request);
+        if ($steamIdForm->isSubmitted() && $steamIdForm->isValid()) {
+            $data = $steamIdForm->getData();
             try {
-                $this->userConfigService->setSteamId($user, $steamId);
+                $this->userConfigService->setSteamId($user, $data['steamId']);
+                $this->addFlash('success', 'Steam ID saved successfully!');
+                return $this->redirectToRoute('app_settings_index');
+            } catch (\InvalidArgumentException $e) {
+                $this->addFlash('error', $e->getMessage());
+            }
+        }
 
-                $this->addFlash('success', 'Settings saved successfully!');
-
-                // Check if there's a redirect parameter
-                $redirectRoute = $request->query->get('redirect');
-
-                // Whitelist of allowed redirect routes to prevent open redirect vulnerability
-                $allowedRedirects = [
-                    'inventory_import_form',
-                    'app_dashboard',
-                    'inventory_index',
-                ];
-
-                if ($redirectRoute && in_array($redirectRoute, $allowedRedirects, true)) {
-                    // Redirect back to the specified route
-                    return $this->redirectToRoute($redirectRoute);
-                }
-
-                // Default: redirect to dashboard
-                return $this->redirectToRoute('app_dashboard');
-
+        // Handle Currency form
+        $currencyForm->handleRequest($request);
+        if ($currencyForm->isSubmitted() && $currencyForm->isValid()) {
+            $data = $currencyForm->getData();
+            try {
+                $this->userConfigService->setCurrencyPreferences(
+                    $user,
+                    $data['preferredCurrency'],
+                    $data['cadExchangeRate']
+                );
+                $this->addFlash('success', 'Currency preferences saved successfully!');
+                return $this->redirectToRoute('app_settings_index');
             } catch (\InvalidArgumentException $e) {
                 $this->addFlash('error', $e->getMessage());
             }
         }
 
         return $this->render('settings/index.html.twig', [
-            'form' => $form->createView(),
-            'currentSteamId' => $currentSteamId,
+            'steamIdForm' => $steamIdForm->createView(),
+            'currencyForm' => $currencyForm->createView(),
+            'currentSteamId' => $config->getSteamId(),
+            'currentCurrency' => $config->getPreferredCurrency() ?? 'USD',
+            'currentExchangeRate' => $config->getCadExchangeRate() ?? 1.38,
         ]);
     }
 }

@@ -51,9 +51,9 @@
                 </div>
             {% endif %}
 
-            {{ form_start(form) }}
+            {{ form_start(steamIdForm) }}
                 <div class="mb-6">
-                    {{ form_row(form.steamId) }}
+                    {{ form_row(steamIdForm.steamId) }}
 
                     <!-- Help Text with Instructions -->
                     <div class="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
@@ -78,10 +78,67 @@
                         Cancel
                     </a>
                     <button type="submit" class="btn-primary">
-                        Save Settings
+                        Save Steam ID
                     </button>
                 </div>
-            {{ form_end(form) }}
+            {{ form_end(steamIdForm) }}
+        </div>
+
+        <!-- Currency Preferences Card -->
+        <div class="card mb-6">
+            <h3 class="text-xl font-semibold text-white mb-4">Currency Preferences</h3>
+
+            {% if currentCurrency %}
+                <div class="mb-6 p-4 bg-gray-800 border border-gray-700 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-400">Current Display Currency</p>
+                            <p class="text-lg font-semibold text-white">
+                                {% if currentCurrency == 'CAD' %}
+                                    Canadian Dollar (CAD)
+                                {% else %}
+                                    US Dollar (USD)
+                                {% endif %}
+                            </p>
+                        </div>
+                        {% if currentCurrency == 'CAD' %}
+                            <div class="text-right">
+                                <p class="text-sm text-gray-400">Exchange Rate</p>
+                                <p class="text-lg font-semibold text-cs2-orange">{{ currentExchangeRate|number_format(4, '.', ',') }}</p>
+                                <p class="text-xs text-gray-500 mt-1">$1.00 USD = CA${{ currentExchangeRate|number_format(2, '.', ',') }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+
+            {{ form_start(currencyForm) }}
+                <div class="space-y-4 mb-6">
+                    {{ form_row(currencyForm.preferredCurrency) }}
+
+                    {{ form_row(currencyForm.cadExchangeRate) }}
+
+                    <!-- Help Text with Example -->
+                    <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                        <h4 class="text-sm font-semibold text-white mb-2">How currency display works:</h4>
+                        <ul class="list-disc list-inside space-y-1 text-sm text-gray-300">
+                            <li>All prices are stored in USD (Steam's default currency)</li>
+                            <li>Selecting CAD will convert prices for display only</li>
+                            <li>You can update the exchange rate anytime to match current rates</li>
+                            <li>Example: If rate is 1.38, a $10.00 USD item displays as CA$13.80</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <a href="{{ path('app_dashboard') }}" class="btn-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn-primary">
+                        Save Currency Preferences
+                    </button>
+                </div>
+            {{ form_end(currencyForm) }}
         </div>
 
         <!-- Additional Settings Placeholder -->

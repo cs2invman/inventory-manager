@@ -127,7 +127,8 @@
                             checked: true,
                             itemId: 'add-' ~ itemData.assetId,
                             rarity: itemData.item.rarity,
-                            type: itemData.item.type
+                            type: itemData.item.type,
+                            userConfig: userConfig
                         } %}
                             {% block badges %}
                                 <span class="absolute top-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg z-10">
@@ -188,7 +189,8 @@
                             checked: true,
                             itemId: 'remove-' ~ itemData.assetId,
                             rarity: itemData.item.rarity,
-                            type: itemData.item.type
+                            type: itemData.item.type,
+                            userConfig: userConfig
                         } %}
                             {% block badges %}
                                 <span class="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg z-10">

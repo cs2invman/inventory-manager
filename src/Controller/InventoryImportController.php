@@ -77,6 +77,7 @@ class InventoryImportController extends AbstractController
 
             return $this->render('inventory/import_preview.html.twig', [
                 'preview' => $preview,
+                'userConfig' => $user->getConfig(),
             ]);
         } catch (\Exception $e) {
             $this->addFlash('error', 'Failed to parse inventory data: ' . $e->getMessage());
