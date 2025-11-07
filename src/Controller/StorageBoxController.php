@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\StorageBox;
 use App\Service\StorageBoxTransactionService;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,7 +20,7 @@ class StorageBoxController extends AbstractController
     ) {}
 
     #[Route('/deposit/{id}', name: 'storage_box_deposit_form')]
-    public function depositForm(StorageBox $storageBox): Response
+    public function depositForm(#[MapEntity] StorageBox $storageBox): Response
     {
         // Security check
         if ($storageBox->getUser() !== $this->getUser()) {
@@ -32,7 +33,7 @@ class StorageBoxController extends AbstractController
     }
 
     #[Route('/deposit/{id}/preview', name: 'storage_box_deposit_preview', methods: ['POST'])]
-    public function depositPreview(StorageBox $storageBox, Request $request): Response
+    public function depositPreview(#[MapEntity] StorageBox $storageBox, Request $request): Response
     {
         // Security check
         if ($storageBox->getUser() !== $this->getUser()) {
@@ -70,7 +71,7 @@ class StorageBoxController extends AbstractController
     }
 
     #[Route('/deposit/{id}/confirm', name: 'storage_box_deposit_confirm', methods: ['POST'])]
-    public function depositConfirm(StorageBox $storageBox, Request $request): Response
+    public function depositConfirm(#[MapEntity] StorageBox $storageBox, Request $request): Response
     {
         // Security check
         if ($storageBox->getUser() !== $this->getUser()) {
@@ -109,7 +110,7 @@ class StorageBoxController extends AbstractController
     }
 
     #[Route('/withdraw/{id}', name: 'storage_box_withdraw_form')]
-    public function withdrawForm(StorageBox $storageBox): Response
+    public function withdrawForm(#[MapEntity] StorageBox $storageBox): Response
     {
         // Security check
         if ($storageBox->getUser() !== $this->getUser()) {
@@ -122,7 +123,7 @@ class StorageBoxController extends AbstractController
     }
 
     #[Route('/withdraw/{id}/preview', name: 'storage_box_withdraw_preview', methods: ['POST'])]
-    public function withdrawPreview(StorageBox $storageBox, Request $request): Response
+    public function withdrawPreview(#[MapEntity] StorageBox $storageBox, Request $request): Response
     {
         // Security check
         if ($storageBox->getUser() !== $this->getUser()) {
@@ -160,7 +161,7 @@ class StorageBoxController extends AbstractController
     }
 
     #[Route('/withdraw/{id}/confirm', name: 'storage_box_withdraw_confirm', methods: ['POST'])]
-    public function withdrawConfirm(StorageBox $storageBox, Request $request): Response
+    public function withdrawConfirm(#[MapEntity] StorageBox $storageBox, Request $request): Response
     {
         // Security check
         if ($storageBox->getUser() !== $this->getUser()) {
