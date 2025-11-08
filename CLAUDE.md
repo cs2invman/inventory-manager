@@ -41,7 +41,7 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 
 **StorageBox** belongs to **User**
 - Two types: Steam-imported (has assetId) or manual (no assetId, for friend lending)
-- `reportedCount`: Steam's count, updated ONLY during imports
+- `reportedCount`: Steam's count, updated during imports AND deposit/withdraw transactions
 - `itemCount`: Synced with reportedCount during imports
 - `actualCount`: Computed from DB (not a field), used to detect sync issues
 - Manual boxes never touched by imports
@@ -52,19 +52,20 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 
 **ItemSyncService**: Syncs JSON files to database, handles deduplication by external_id, deferred deactivation for chunks
 
-**InventoryImportService**: Parses Steam inventory JSON, matches by classId, extracts float/stickers/keychains, import deletes only items where `storageBox = null`
+**InventoryImportService**: Parses Steam inventory JSON, matches by classId, extracts float/stickers/keychains, import deletes only items where `storageBox = null`. Skips default Music Kit (Valve, CS:GO)
 
 **StorageBoxService**: Creates/manages storage boxes, syncs Steam boxes during import
 
-**StorageBoxTransactionService**: Deposit/withdraw workflows, compares inventory snapshots, preview/confirm pattern
+**StorageBoxTransactionService**: Deposit/withdraw workflows, compares inventory snapshots, preview/confirm pattern. Syncs `reportedCount` from Steam JSON during transactions
 
 **UserConfigService**: Manages Steam ID settings, validates SteamID64 format
 
 ### Essential Workflows
 
 **Inventory Import:**
-1. Upload Steam JSON → Preview (shows NEW/REMOVE with prices)
+1. Upload Steam JSON → Preview (shows NEW/REMOVE with prices, excludes boxed items from comparison)
 2. Confirm → Storage boxes synced, main inventory items replaced, boxed items preserved
+3. Delete All route (`inventory_import_delete_all`) - testing tool with two-step confirmation
 
 **Item Matching:**
 - Uses `classId` to match Steam items to local database
@@ -72,7 +73,10 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 
 **Deposit/Withdraw:**
 1. Paste Steam JSON → Compare snapshots to detect movements
-2. Preview → Confirm → Items moved, assetId changes handled by property matching
+2. Preview → Confirm → Items moved, assetId changes handled by property matching, `reportedCount` synced from JSON
+
+**Reusable Components:**
+- `templates/components/confirmation_modal.html.twig` - Two-step confirmation pattern (confirm button + text input verification)
 
 ## Development Commands
 
