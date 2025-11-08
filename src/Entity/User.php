@@ -66,11 +66,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToOne(mappedBy: 'user', targetEntity: UserConfig::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private ?UserConfig $config = null;
 
+    /**
+     * @var Collection<int, LedgerEntry>
+     */
+    #[ORM\OneToMany(targetEntity: LedgerEntry::class, mappedBy: 'user', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $ledgerEntries;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->inventory = new ArrayCollection();
         $this->storageBoxes = new ArrayCollection();
+        $this->ledgerEntries = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -274,6 +281,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         }
 
         $this->config = $config;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, LedgerEntry>
+     */
+    public function getLedgerEntries(): Collection
+    {
+        return $this->ledgerEntries;
+    }
+
+    public function addLedgerEntry(LedgerEntry $ledgerEntry): static
+    {
+        if (!$this->ledgerEntries->contains($ledgerEntry)) {
+            $this->ledgerEntries->add($ledgerEntry);
+            $ledgerEntry->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeLedgerEntry(LedgerEntry $ledgerEntry): static
+    {
+        if ($this->ledgerEntries->removeElement($ledgerEntry)) {
+            if ($ledgerEntry->getUser() === $this) {
+                $ledgerEntry->setUser(null);
+            }
+        }
+
         return $this;
     }
 }

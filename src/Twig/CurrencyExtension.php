@@ -2,6 +2,7 @@
 
 namespace App\Twig;
 
+use App\Entity\UserConfig;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 
@@ -11,6 +12,7 @@ class CurrencyExtension extends AbstractExtension
     {
         return [
             new TwigFilter('format_price', [$this, 'formatPrice']),
+            new TwigFilter('currency', [$this, 'formatCurrency']),
         ];
     }
 
@@ -36,5 +38,38 @@ class CurrencyExtension extends AbstractExtension
 
         // Default to USD
         return '$' . number_format($priceUsd, 2, '.', ',');
+    }
+
+    /**
+     * Format currency amount based on original currency and user preferences
+     */
+    public function formatCurrency(
+        ?string $amount,
+        ?string $originalCurrency,
+        ?UserConfig $userConfig = null
+    ): string {
+        // Handle null amounts
+        if ($amount === null) {
+            return 'N/A';
+        }
+
+        $amountFloat = (float) $amount;
+        $preferredCurrency = $userConfig?->getPreferredCurrency() ?? 'USD';
+        $exchangeRate = $userConfig?->getCadExchangeRate() ?? 1.38;
+
+        // Convert amount to USD first (if original is CAD)
+        $amountInUsd = $amountFloat;
+        if ($originalCurrency === 'CAD') {
+            $amountInUsd = $amountFloat / $exchangeRate;
+        }
+
+        // Convert to user's preferred currency
+        if ($preferredCurrency === 'CAD') {
+            $convertedAmount = $amountInUsd * $exchangeRate;
+            return 'CA$' . number_format($convertedAmount, 2, '.', ',');
+        }
+
+        // Display in USD
+        return '$' . number_format($amountInUsd, 2, '.', ',');
     }
 }

@@ -1,9 +1,10 @@
 # Task 25: Investment Ledger - Backend Foundation
 
-**Status**: Not Started
+**Status**: Completed
 **Priority**: High
 **Estimated Effort**: Medium
 **Created**: 2025-11-07
+**Completed**: 2025-11-08
 
 ## Overview
 

@@ -20,7 +20,8 @@
     <body class="h-full bg-gray-900 text-white">
         <div class="min-h-screen bg-gray-900">
             {% if app.user %}
-                <!-- Navigation Header -->
+                <!-- Navigat that
+                ion Header -->
                 <nav class="bg-gray-800 shadow-steam">
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div class="flex justify-between items-center h-16">
@@ -33,6 +34,7 @@
                                 <div class="hidden md:block">
                                     <div class="ml-10 flex items-baseline space-x-4">
                                         <a href="{{ path('inventory_index') }}" class="nav-link {% if app.request.get('_route') starts with 'inventory' %}active{% endif %}">Inventory</a>
+                                        <a href="{{ path('ledger_index') }}" class="nav-link {% if app.request.get('_route') starts with 'ledger' %}active{% endif %}">Ledger</a>
                                         <a href="#" class="nav-link">Items</a>
                                     </div>
                                 </div>
