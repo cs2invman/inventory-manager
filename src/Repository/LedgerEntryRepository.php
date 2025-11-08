@@ -84,4 +84,22 @@ class LedgerEntryRepository extends ServiceEntityRepository
 
         return $qb->getQuery()->getResult();
     }
+
+    /**
+     * Find all distinct categories used by a user
+     *
+     * @param User $user
+     * @return string[]
+     */
+    public function findCategoriesForUser(User $user): array
+    {
+        return $this->createQueryBuilder('l')
+            ->select('DISTINCT l.category')
+            ->where('l.user = :user')
+            ->andWhere('l.category IS NOT NULL')
+            ->setParameter('user', $user)
+            ->orderBy('l.category', 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+    }
 }

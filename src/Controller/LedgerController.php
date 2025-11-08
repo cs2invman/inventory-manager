@@ -24,13 +24,34 @@ class LedgerController extends AbstractController
     }
 
     #[Route('', name: 'ledger_index', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $user = $this->getUser();
-        $entries = $this->ledgerEntryRepository->findByUser(
+
+        // Get filter parameters from query string
+        $filters = [
+            'transactionType' => $request->query->get('type'),
+            'currency' => $request->query->get('currency'),
+            'category' => $request->query->get('category'),
+        ];
+
+        // Get sort parameters with defaults
+        $validSortFields = ['transactionDate', 'amount', 'transactionType', 'category'];
+        $sort = $request->query->get('sort', 'transactionDate');
+        $sort = in_array($sort, $validSortFields) ? $sort : 'transactionDate';
+
+        $order = strtoupper($request->query->get('order', 'DESC'));
+        $order = in_array($order, ['ASC', 'DESC']) ? $order : 'DESC';
+
+        // Fetch entries with filters and sorting
+        $entries = $this->ledgerEntryRepository->findByUserWithFilters(
             $user,
-            ['transactionDate' => 'DESC']
+            $filters,
+            [$sort => $order]
         );
+
+        // Get unique categories for filter dropdown
+        $categories = $this->ledgerEntryRepository->findCategoriesForUser($user);
 
         // Calculate totals
         $userConfig = $user->getConfig();
@@ -65,10 +86,15 @@ class LedgerController extends AbstractController
 
         return $this->render('ledger/index.html.twig', [
             'entries' => $entries,
+            'categories' => $categories,
+            'currentFilters' => $filters,
+            'currentSort' => $sort,
+            'currentOrder' => $order,
             'userConfig' => $userConfig,
             'totalCount' => $totalCount,
             'netTotal' => $netTotal,
             'preferredCurrency' => $preferredCurrency,
+            'exchangeRate' => $exchangeRate,
         ]);
     }
 

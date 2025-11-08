@@ -1,0 +1,108 @@
+{# Filter and Sort Form #}
+<div class="card mb-6">
+    <form method="get" action="{{ path('ledger_index') }}" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {# Transaction Type Filter #}
+            <div>
+                <label for="type" class="block text-sm font-medium text-gray-300 mb-2">
+                    Transaction Type
+                </label>
+                <select name="type" id="type" class="form-select w-full bg-gray-800 border-gray-700 text-white rounded-md focus:border-cs2-orange focus:ring focus:ring-cs2-orange focus:ring-opacity-50">
+                    <option value="">All Types</option>
+                    <option value="investment" {% if currentFilters.transactionType == 'investment' %}selected{% endif %}>Investment</option>
+                    <option value="withdrawal" {% if currentFilters.transactionType == 'withdrawal' %}selected{% endif %}>Withdrawal</option>
+                </select>
+            </div>
+
+            {# Currency Filter #}
+            <div>
+                <label for="currency" class="block text-sm font-medium text-gray-300 mb-2">
+                    Currency
+                </label>
+                <select name="currency" id="currency" class="form-select w-full bg-gray-800 border-gray-700 text-white rounded-md focus:border-cs2-orange focus:ring focus:ring-cs2-orange focus:ring-opacity-50">
+                    <option value="">All Currencies</option>
+                    <option value="USD" {% if currentFilters.currency == 'USD' %}selected{% endif %}>USD</option>
+                    <option value="CAD" {% if currentFilters.currency == 'CAD' %}selected{% endif %}>CAD</option>
+                </select>
+            </div>
+
+            {# Category Filter #}
+            <div>
+                <label for="category" class="block text-sm font-medium text-gray-300 mb-2">
+                    Category
+                </label>
+                <select name="category" id="category" class="form-select w-full bg-gray-800 border-gray-700 text-white rounded-md focus:border-cs2-orange focus:ring focus:ring-cs2-orange focus:ring-opacity-50">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                        <option value="{{ category }}" {% if currentFilters.category == category %}selected{% endif %}>
+                            {{ category }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {# Sort Field #}
+            <div>
+                <label for="sort" class="block text-sm font-medium text-gray-300 mb-2">
+                    Sort By
+                </label>
+                <select name="sort" id="sort" class="form-select w-full bg-gray-800 border-gray-700 text-white rounded-md focus:border-cs2-orange focus:ring focus:ring-cs2-orange focus:ring-opacity-50">
+                    <option value="transactionDate" {% if currentSort == 'transactionDate' %}selected{% endif %}>Date</option>
+                    <option value="amount" {% if currentSort == 'amount' %}selected{% endif %}>Amount</option>
+                    <option value="transactionType" {% if currentSort == 'transactionType' %}selected{% endif %}>Type</option>
+                    <option value="category" {% if currentSort == 'category' %}selected{% endif %}>Category</option>
+                </select>
+            </div>
+
+            {# Sort Order #}
+            <div>
+                <label for="order" class="block text-sm font-medium text-gray-300 mb-2">
+                    Order
+                </label>
+                <select name="order" id="order" class="form-select w-full bg-gray-800 border-gray-700 text-white rounded-md focus:border-cs2-orange focus:ring focus:ring-cs2-orange focus:ring-opacity-50">
+                    <option value="DESC" {% if currentOrder == 'DESC' %}selected{% endif %}>Descending</option>
+                    <option value="ASC" {% if currentOrder == 'ASC' %}selected{% endif %}>Ascending</option>
+                </select>
+            </div>
+        </div>
+
+        {# Action Buttons #}
+        <div class="flex items-center gap-4">
+            <button type="submit" class="btn-primary">
+                Apply Filters
+            </button>
+            {% set hasFilters = currentFilters.transactionType or currentFilters.currency or currentFilters.category %}
+            {% if hasFilters %}
+                <a href="{{ path('ledger_index') }}" class="text-gray-400 hover:text-white transition-colors text-sm">
+                    Clear Filters
+                </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{# Active Filters Display #}
+{% set hasFilters = currentFilters.transactionType or currentFilters.currency or currentFilters.category %}
+{% if hasFilters %}
+    <div class="mb-6 flex flex-wrap gap-2 items-center">
+        <span class="text-sm font-medium text-gray-400">Active Filters:</span>
+
+        {% if currentFilters.transactionType %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-cs2-orange/20 text-cs2-orange border border-cs2-orange/30">
+                Type: {{ currentFilters.transactionType|capitalize }}
+            </span>
+        {% endif %}
+
+        {% if currentFilters.currency %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-cs2-orange/20 text-cs2-orange border border-cs2-orange/30">
+                Currency: {{ currentFilters.currency }}
+            </span>
+        {% endif %}
+
+        {% if currentFilters.category %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-cs2-orange/20 text-cs2-orange border border-cs2-orange/30">
+                Category: {{ currentFilters.category }}
+            </span>
+        {% endif %}
+    </div>
+{% endif %}
