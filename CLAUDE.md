@@ -30,6 +30,7 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 **User** → **UserConfig** (one-to-one, Steam ID settings)
 **User** → **ItemUser** (one-to-many, inventory items)
 **User** → **StorageBox** (one-to-many, storage containers)
+**User** → **LedgerEntry** (one-to-many, financial transactions)
 
 **Item** (Steam marketplace data) → **ItemPrice** (one-to-many, price history)
 **Item** → **ItemUser** (one-to-many, user instances)
@@ -45,6 +46,10 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 - `itemCount`: Synced with reportedCount during imports
 - `actualCount`: Computed from DB (not a field), used to detect sync issues
 - Manual boxes never touched by imports
+
+**LedgerEntry** belongs to **User**
+- Tracks: transaction_date, type (income/expense), amount, currency, description, category
+- For tracking CS2-related financial transactions
 
 ### Key Services
 
@@ -95,11 +100,22 @@ docker compose logs -f
 
 ### Frontend Assets
 
+**⚠️ CRITICAL: ALWAYS rebuild assets after ANY of these changes:**
+- Adding/modifying CSS classes in HTML/Twig templates (Tailwind needs to scan for classes)
+- Modifying CSS files
+- Modifying JS files
+
 ```bash
 docker compose run --rm node npm install
 docker compose run --rm node npm run build
-docker compose run --rm node npm run watch  # Development
+docker compose run --rm node npm run watch  # Development (auto-rebuilds on changes)
 ```
+
+**When to rebuild:**
+- After editing any `.twig` template with class changes
+- After modifying `assets/styles/app.css`
+- After modifying any JavaScript files
+- Before testing UI changes in browser
 
 ### Console Commands
 
