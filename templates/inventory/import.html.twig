@@ -15,11 +15,33 @@
         {% endfor %}
 
         <!-- Page Header -->
-        <div class="mb-8">
-            <h2 class="text-3xl font-bold text-white mb-2">Import CS2 Inventory</h2>
-            <p class="text-gray-400">
-                Paste your Steam inventory JSON data below to import your CS2 items.
-            </p>
+        <div class="mb-8 flex items-start justify-between">
+            <div>
+                <h2 class="text-3xl font-bold text-white mb-2">Import CS2 Inventory</h2>
+                <p class="text-gray-400">
+                    Paste your Steam inventory JSON data below to import your CS2 items.
+                </p>
+            </div>
+            <div class="flex-shrink-0 ml-4">
+                {% embed 'components/confirmation_modal.html.twig' with {
+                    modalId: 'deleteInventory',
+                    title: 'Delete All Inventory Data?',
+                    message: 'This will permanently delete <strong>ALL</strong> of your inventory items and storage boxes. This action cannot be undone.',
+                    confirmText: 'DELETE',
+                    actionUrl: path('inventory_import_delete_all'),
+                    confirmButtonText: 'Confirm Delete'
+                } %}
+                    {% block trigger %}
+                        <button
+                            type="button"
+                            @click="openModal"
+                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                        >
+                            Delete All Data
+                        </button>
+                    {% endblock %}
+                {% endembed %}
+            </div>
         </div>
 
         <!-- Steam ID Display -->
@@ -208,8 +230,8 @@
                 <li>Make sure you're logged into the correct Steam account when fetching the data</li>
                 <li>The inventory data must be from Steam's official API</li>
                 <li>Trade-lock status is not tracked - both tradeable and trade-locked items are imported equally</li>
-                <li>Float values and sticker information will be automatically extracted</li>
-                <li><strong>Automatically skipped:</strong> Storage Units, Medals, Coins, Graffiti, Music Kits, and Badges (non-tradeable collectibles)</li>
+                <li>Float values and pattern information will be automatically extracted</li>
+                <li><strong>Automatically skipped:</strong> Medals, Coins, and Badges (non-tradeable collectibles)</li>
             </ul>
         </div>
 </main>

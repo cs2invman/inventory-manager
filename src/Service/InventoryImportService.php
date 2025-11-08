@@ -104,8 +104,8 @@ class InventoryImportService
             ];
         }
 
-        // Get current inventory for comparison
-        $currentInventory = $this->itemUserRepository->findUserInventory($user->getId());
+        // Get current inventory for comparison (excludes items in storage boxes)
+        $currentInventory = $this->itemUserRepository->findMainInventoryOnly($user->getId());
 
         // Get actual items to add/remove (not just counts)
         $itemsToAdd = $this->getItemsToAdd($mappedItems, $currentInventory);
@@ -171,11 +171,16 @@ class InventoryImportService
         }
 
         // Log comparison results for debugging
+        $totalInventoryCount = $this->itemUserRepository->countUserItems($user->getId());
+        $boxedItemsCount = $totalInventoryCount - count($currentInventory);
+
         $this->logger->info('Import preview comparison results', [
             'total_items_in_import' => count($mappedItems),
             'items_to_add_count' => count($itemsToAddData),
             'items_to_remove_count' => count($itemsToRemoveData),
             'current_inventory_count' => count($currentInventory),
+            'boxed_items_excluded' => $boxedItemsCount,
+            'total_inventory_count' => $totalInventoryCount,
         ]);
 
         // Store parsed data in session (including storage boxes and enriched item data)
@@ -795,6 +800,16 @@ class InventoryImportService
     private function shouldSkipItem(array $description): bool
     {
         $itemType = $this->extractItemType($description);
+        $marketHashName = $description['market_hash_name'] ?? '';
+
+        // Skip the default non-tradeable music kit that all players receive
+        if ($marketHashName === 'Music Kit | Valve, CS:GO') {
+            $this->logger->debug('Skipping default non-tradeable music kit', [
+                'name' => $description['name'] ?? 'Unknown',
+                'market_hash_name' => $marketHashName,
+            ]);
+            return true; // Skip
+        }
 
         // Special handling for graffiti: allow sealed graffiti, skip unsealed
         if (in_array($itemType, ['CSGO_Type_Spray', 'Type_Spray'])) {

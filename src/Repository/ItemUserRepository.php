@@ -353,6 +353,22 @@ class ItemUserRepository extends ServiceEntityRepository
     }
 
     /**
+     * Find user's main inventory (excludes items in storage boxes)
+     *
+     * @return ItemUser[]
+     */
+    public function findMainInventoryOnly(int $userId): array
+    {
+        return $this->createQueryBuilder('iu')
+            ->where('iu.user = :userId')
+            ->andWhere('iu.storageBox IS NULL')  // Only main inventory
+            ->setParameter('userId', $userId)
+            ->orderBy('iu.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Count items in user's inventory
      */
     public function countUserItems(int $userId): int

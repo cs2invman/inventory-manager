@@ -2,8 +2,12 @@
 
 namespace App\Controller;
 
+use App\Repository\ItemUserRepository;
+use App\Repository\StorageBoxRepository;
 use App\Service\InventoryImportService;
 use App\Service\UserConfigService;
+use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,7 +20,11 @@ class InventoryImportController extends AbstractController
 {
     public function __construct(
         private readonly InventoryImportService $importService,
-        private readonly UserConfigService $userConfigService
+        private readonly UserConfigService $userConfigService,
+        private readonly ItemUserRepository $itemUserRepository,
+        private readonly StorageBoxRepository $storageBoxRepository,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly LoggerInterface $logger
     ) {
     }
 
@@ -155,5 +163,72 @@ class InventoryImportController extends AbstractController
     {
         $this->addFlash('info', 'Import cancelled.');
         return $this->redirectToRoute('inventory_import_form');
+    }
+
+    #[Route('/delete-all', name: 'inventory_import_delete_all', methods: ['POST'])]
+    public function deleteAll(): Response
+    {
+        $user = $this->getUser();
+
+        try {
+            // Count items and boxes before deletion for logging and flash message
+            $items = $this->itemUserRepository->findBy(['user' => $user]);
+            $storageBoxes = $this->storageBoxRepository->findBy(['user' => $user]);
+            $itemCount = count($items);
+            $boxCount = count($storageBoxes);
+
+            // Start transaction for atomic deletion
+            $this->entityManager->beginTransaction();
+
+            try {
+                // Delete all ItemUser records for the current user
+                foreach ($items as $item) {
+                    $this->entityManager->remove($item);
+                }
+
+                // Delete all StorageBox records for the current user
+                foreach ($storageBoxes as $box) {
+                    $this->entityManager->remove($box);
+                }
+
+                // Flush all changes
+                $this->entityManager->flush();
+
+                // Commit transaction
+                $this->entityManager->commit();
+
+                // Log the deletion event
+                $this->logger->warning('User deleted all inventory data', [
+                    'user_id' => $user->getId(),
+                    'username' => $user->getUserIdentifier(),
+                    'item_count' => $itemCount,
+                    'storage_box_count' => $boxCount,
+                    'timestamp' => new \DateTimeImmutable(),
+                ]);
+
+                // Add flash message with counts
+                $this->addFlash('success', sprintf(
+                    'Deleted %d items and %d storage boxes.',
+                    $itemCount,
+                    $boxCount
+                ));
+
+                return $this->redirectToRoute('inventory_index');
+            } catch (\Exception $e) {
+                // Rollback transaction on error
+                $this->entityManager->rollback();
+                throw $e;
+            }
+        } catch (\Exception $e) {
+            // Log the error
+            $this->logger->error('Failed to delete inventory data', [
+                'user_id' => $user->getId(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->addFlash('error', 'Failed to delete inventory data. Please try again.');
+            return $this->redirectToRoute('inventory_import_form');
+        }
     }
 }

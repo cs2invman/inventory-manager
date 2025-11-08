@@ -21,6 +21,7 @@ class StorageBoxTransactionService
         private EntityManagerInterface $entityManager,
         private ItemUserRepository $itemUserRepository,
         private InventoryImportService $inventoryImportService,
+        private StorageBoxService $storageBoxService,
         private RequestStack $requestStack,
         private LoggerInterface $logger
     ) {}
@@ -34,12 +35,17 @@ class StorageBoxTransactionService
 
         // Parse both JSON inputs and merge items
         $newSnapshotItems = [];
+        $storageBoxesData = [];
 
         if (!empty($tradeableJson)) {
             try {
                 $tradeableData = json_decode($tradeableJson, true, 512, JSON_THROW_ON_ERROR);
                 $parsedTradeable = $this->inventoryImportService->parseInventoryResponse($tradeableData);
                 $newSnapshotItems = array_merge($newSnapshotItems, $parsedTradeable);
+
+                // Extract storage box data from tradeable JSON
+                $tradeableBoxes = $this->storageBoxService->extractStorageBoxesFromJson($tradeableData);
+                $storageBoxesData = array_merge($storageBoxesData, $tradeableBoxes);
             } catch (\JsonException $e) {
                 return new DepositPreview(
                     itemsToDeposit: [],
@@ -56,6 +62,10 @@ class StorageBoxTransactionService
                 $tradeLockedData = json_decode($tradeLockedJson, true, 512, JSON_THROW_ON_ERROR);
                 $parsedTradeLocked = $this->inventoryImportService->parseInventoryResponse($tradeLockedData);
                 $newSnapshotItems = array_merge($newSnapshotItems, $parsedTradeLocked);
+
+                // Extract storage box data from trade-locked JSON
+                $tradeLockedBoxes = $this->storageBoxService->extractStorageBoxesFromJson($tradeLockedData);
+                $storageBoxesData = array_merge($storageBoxesData, $tradeLockedBoxes);
             } catch (\JsonException $e) {
                 return new DepositPreview(
                     itemsToDeposit: [],
@@ -90,11 +100,12 @@ class StorageBoxTransactionService
         $currentItemCount = $box->getItemCount();
         $newItemCount = $currentItemCount + count($itemsToDeposit);
 
-        // Store in session
+        // Store in session (including storage box data for updating reportedCount later)
         $sessionKey = $this->storeTransactionInSession([
             'type' => 'deposit',
             'storage_box_id' => $box->getId(),
-            'items_to_move' => array_map(fn($item) => $item->getId(), $itemsToDeposit)
+            'items_to_move' => array_map(fn($item) => $item->getId(), $itemsToDeposit),
+            'storage_boxes_data' => $storageBoxesData
         ]);
 
         return new DepositPreview(
@@ -115,12 +126,17 @@ class StorageBoxTransactionService
 
         // Parse both JSON inputs and merge items
         $newSnapshotItems = [];
+        $storageBoxesData = [];
 
         if (!empty($tradeableJson)) {
             try {
                 $tradeableData = json_decode($tradeableJson, true, 512, JSON_THROW_ON_ERROR);
                 $parsedTradeable = $this->inventoryImportService->parseInventoryResponse($tradeableData);
                 $newSnapshotItems = array_merge($newSnapshotItems, $parsedTradeable);
+
+                // Extract storage box data from tradeable JSON
+                $tradeableBoxes = $this->storageBoxService->extractStorageBoxesFromJson($tradeableData);
+                $storageBoxesData = array_merge($storageBoxesData, $tradeableBoxes);
             } catch (\JsonException $e) {
                 return new WithdrawPreview(
                     itemsToWithdraw: [],
@@ -137,6 +153,10 @@ class StorageBoxTransactionService
                 $tradeLockedData = json_decode($tradeLockedJson, true, 512, JSON_THROW_ON_ERROR);
                 $parsedTradeLocked = $this->inventoryImportService->parseInventoryResponse($tradeLockedData);
                 $newSnapshotItems = array_merge($newSnapshotItems, $parsedTradeLocked);
+
+                // Extract storage box data from trade-locked JSON
+                $tradeLockedBoxes = $this->storageBoxService->extractStorageBoxesFromJson($tradeLockedData);
+                $storageBoxesData = array_merge($storageBoxesData, $tradeLockedBoxes);
             } catch (\JsonException $e) {
                 return new WithdrawPreview(
                     itemsToWithdraw: [],
@@ -171,11 +191,12 @@ class StorageBoxTransactionService
         $currentItemCount = $box->getItemCount();
         $newItemCount = $currentItemCount - count($itemsToWithdraw);
 
-        // Store in session
+        // Store in session (including storage box data for updating reportedCount later)
         $sessionKey = $this->storeTransactionInSession([
             'type' => 'withdraw',
             'storage_box_id' => $box->getId(),
-            'items_to_move' => array_map(fn($item) => $item->getId(), $itemsToWithdraw)
+            'items_to_move' => array_map(fn($item) => $item->getId(), $itemsToWithdraw),
+            'storage_boxes_data' => $storageBoxesData
         ]);
 
         return new WithdrawPreview(
@@ -228,9 +249,10 @@ class StorageBoxTransactionService
                 $itemsMoved++;
             }
 
-            // Note: We don't update itemCount or reportedCount here
-            // reportedCount is set only during import and never changes
-            // actualCount is computed on-demand by counting database items
+            // Update storage box reportedCount and modificationDate from JSON data
+            // This is provided by Steam in the deposit JSON and should be used to keep reportedCount in sync
+            $storageBoxesData = $transactionData['storage_boxes_data'] ?? [];
+            $this->updateStorageBoxFromJson($box, $storageBoxesData);
 
             $this->entityManager->flush();
             $this->entityManager->commit();
@@ -306,9 +328,10 @@ class StorageBoxTransactionService
                 $itemsMoved++;
             }
 
-            // Note: We don't update itemCount or reportedCount here
-            // reportedCount is set only during import and never changes
-            // actualCount is computed on-demand by counting database items
+            // Update storage box reportedCount and modificationDate from JSON data
+            // This is provided by Steam in the withdraw JSON and should be used to keep reportedCount in sync
+            $storageBoxesData = $transactionData['storage_boxes_data'] ?? [];
+            $this->updateStorageBoxFromJson($box, $storageBoxesData);
 
             $this->entityManager->flush();
             $this->entityManager->commit();
@@ -425,6 +448,59 @@ class StorageBoxTransactionService
         }
 
         return null;
+    }
+
+    /**
+     * Update storage box reportedCount and modificationDate from JSON data
+     */
+    private function updateStorageBoxFromJson(StorageBox $box, array $storageBoxesData): void
+    {
+        // Only update Steam boxes (with assetId), never manual boxes
+        if (!$box->isSteamBox()) {
+            $this->logger->debug('Skipping reportedCount update for manual box', [
+                'storage_box_id' => $box->getId(),
+                'storage_box_name' => $box->getName()
+            ]);
+            return;
+        }
+
+        $boxAssetId = $box->getAssetId();
+
+        // Find matching storage box data by assetId
+        foreach ($storageBoxesData as $boxData) {
+            if (isset($boxData['asset_id']) && $boxData['asset_id'] === $boxAssetId) {
+                // Update reportedCount from JSON data
+                $newReportedCount = $boxData['item_count'];
+                $oldReportedCount = $box->getReportedCount();
+
+                $box->setReportedCount($newReportedCount);
+
+                // Update modification date if present
+                if (isset($boxData['modification_date']) && $boxData['modification_date'] instanceof \DateTimeImmutable) {
+                    $box->setModificationDate($boxData['modification_date']);
+                }
+
+                $this->entityManager->persist($box);
+
+                $this->logger->info('Updated storage box reportedCount from deposit/withdraw JSON', [
+                    'storage_box_id' => $box->getId(),
+                    'storage_box_name' => $box->getName(),
+                    'asset_id' => $boxAssetId,
+                    'old_reported_count' => $oldReportedCount,
+                    'new_reported_count' => $newReportedCount
+                ]);
+
+                return;
+            }
+        }
+
+        // Log warning if storage box data not found in JSON
+        $this->logger->warning('Storage box not found in JSON data, reportedCount not updated', [
+            'storage_box_id' => $box->getId(),
+            'storage_box_name' => $box->getName(),
+            'asset_id' => $boxAssetId,
+            'storage_boxes_in_json' => count($storageBoxesData)
+        ]);
     }
 
     private function storeTransactionInSession(array $data): string
