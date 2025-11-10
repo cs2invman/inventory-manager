@@ -1,0 +1,632 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}CS2 Items Browser{% endblock %}
+
+{% block body %}
+<!-- Main Content - Full Width -->
+<main class="w-full py-6 px-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-cs2-orange">CS2 Items Browser</h1>
+        <p class="text-gray-400 mt-2">Browse and explore all CS2 marketplace items with prices and trends</p>
+    </div>
+
+    <!-- Alpine.js Component -->
+    <div x-data="itemsTable()" x-init="loadItems()">
+        <!-- Filters Section -->
+        <div class="mb-8">
+            <!-- Search Bar -->
+            <div class="mb-6">
+                <div class="relative">
+                    <input
+                        type="text"
+                        x-model="filters.search"
+                        @input="onSearchInput()"
+                        placeholder="Search items by name..."
+                        class="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-cs2-orange focus:ring-1 focus:ring-cs2-orange"
+                    >
+                    <div class="absolute right-3 top-3">
+                        <svg x-show="loading" class="animate-spin h-5 w-5 text-cs2-orange" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <button x-show="!loading && filters.search" @click="filters.search = ''; onFilterChange()" class="text-gray-400 hover:text-white">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Dropdowns Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+                <!-- Category Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Category</label>
+                    <select
+                        x-model="filters.category"
+                        @change="onFilterChange()"
+                        class="w-full px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-cs2-orange"
+                    >
+                        <option value="">All Categories</option>
+                        <template x-for="cat in availableFilters.categories" :key="cat">
+                            <option :value="cat" x-text="cat"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Subcategory Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Subcategory</label>
+                    <select
+                        x-model="filters.subcategory"
+                        @change="onFilterChange()"
+                        class="w-full px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-cs2-orange"
+                    >
+                        <option value="">All Subcategories</option>
+                        <template x-for="sub in availableFilters.subcategories" :key="sub">
+                            <option :value="sub" x-text="sub"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Type Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                    <select
+                        x-model="filters.type"
+                        @change="onFilterChange()"
+                        class="w-full px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-cs2-orange"
+                    >
+                        <option value="">All Types</option>
+                        <template x-for="type in availableFilters.types" :key="type">
+                            <option :value="type" x-text="type"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Rarity Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Rarity</label>
+                    <select
+                        x-model="filters.rarity"
+                        @change="onFilterChange()"
+                        class="w-full px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-cs2-orange"
+                    >
+                        <option value="">All Rarities</option>
+                        <template x-for="rar in availableFilters.rarities" :key="rar">
+                            <option :value="rar" x-text="rar"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Min Price Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Min Price</label>
+                    <input
+                        type="number"
+                        x-model="filters.minPrice"
+                        @input="onSearchInput()"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        class="w-full px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-cs2-orange"
+                    >
+                </div>
+
+                <!-- Max Price Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Max Price</label>
+                    <input
+                        type="number"
+                        x-model="filters.maxPrice"
+                        @input="onSearchInput()"
+                        placeholder="9999.99"
+                        step="0.01"
+                        min="0"
+                        class="w-full px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-cs2-orange"
+                    >
+                </div>
+            </div>
+
+            <!-- Checkbox Filters and Clear Button -->
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            x-model="filters.stattrak"
+                            @change="onFilterChange()"
+                            class="w-4 h-4 text-cs2-orange bg-gray-800 border-gray-600 rounded focus:ring-cs2-orange"
+                        >
+                        <span class="ml-2 text-sm text-gray-300">StatTrak™ Available</span>
+                    </label>
+
+                    <label class="flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            x-model="filters.souvenir"
+                            @change="onFilterChange()"
+                            class="w-4 h-4 text-cs2-orange bg-gray-800 border-gray-600 rounded focus:ring-cs2-orange"
+                        >
+                        <span class="ml-2 text-sm text-gray-300">Souvenir Available</span>
+                    </label>
+                </div>
+
+                <!-- Clear Filters Button -->
+                <button
+                    @click="clearFilters()"
+                    class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                    Clear All Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="bg-gray-800 rounded-lg shadow-steam overflow-hidden relative">
+            <!-- Loading Overlay -->
+            <div x-show="loading" class="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-10" style="display: none;">
+                <div class="text-center">
+                    <svg class="animate-spin h-10 w-10 text-cs2-orange mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-gray-400">Loading items...</p>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-900 border-b border-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Image</th>
+                            <th
+                                @click="sortByColumn('name')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>Name</span>
+                                    <svg x-show="sortBy === 'name'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('type')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>Type</span>
+                                    <svg x-show="sortBy === 'type'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('category')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>Category</span>
+                                    <svg x-show="sortBy === 'category'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('subcategory')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>Subcategory</span>
+                                    <svg x-show="sortBy === 'subcategory'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('rarity')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>Rarity</span>
+                                    <svg x-show="sortBy === 'rarity'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('price')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>Price</span>
+                                    <svg x-show="sortBy === 'price'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('volume')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>Volume</span>
+                                    <svg x-show="sortBy === 'volume'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('updatedAt')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>Updated</span>
+                                    <svg x-show="sortBy === 'updatedAt'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('trend7d')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>7d Trend</span>
+                                    <svg x-show="sortBy === 'trend7d'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th
+                                @click="sortByColumn('trend30d')"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
+                            >
+                                <div class="flex items-center space-x-1">
+                                    <span>30d Trend</span>
+                                    <svg x-show="sortBy === 'trend30d'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        <!-- Empty State -->
+                        <tr x-show="!loading && items.length === 0">
+                            <td colspan="12" class="px-4 py-12 text-center text-gray-400">
+                                <svg class="h-12 w-12 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <p class="text-lg">No items found matching your filters</p>
+                                <button @click="clearFilters()" class="mt-4 text-cs2-orange hover:text-orange-400">Clear all filters</button>
+                            </td>
+                        </tr>
+
+                        <!-- Item Rows -->
+                        <template x-for="item in items" :key="item.id">
+                            <tr class="hover:bg-gray-750 transition-colors">
+                                <!-- Image -->
+                                <td class="px-4 py-3">
+                                    <img :src="item.imageUrl" :alt="item.name" class="h-12 w-auto">
+                                </td>
+
+                                <!-- Name with Quality Badge -->
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-medium text-white" x-text="item.name"></span>
+                                        <span x-show="item.stattrakAvailable" class="px-2 py-0.5 text-xs bg-orange-600 text-white rounded">ST</span>
+                                        <span x-show="item.souvenirAvailable" class="px-2 py-0.5 text-xs bg-yellow-600 text-white rounded">SV</span>
+                                    </div>
+                                </td>
+
+                                <!-- Type -->
+                                <td class="px-4 py-3 text-sm text-gray-300" x-text="item.type"></td>
+
+                                <!-- Category -->
+                                <td class="px-4 py-3 text-sm text-gray-300" x-text="item.category"></td>
+
+                                <!-- Subcategory -->
+                                <td class="px-4 py-3 text-sm text-gray-300" x-text="item.subcategory || '--'"></td>
+
+                                <!-- Rarity with Color Badge -->
+                                <td class="px-4 py-3">
+                                    <span
+                                        class="px-2 py-1 text-xs font-medium rounded"
+                                        :style="`background-color: ${item.rarityColor}20; color: ${item.rarityColor}; border: 1px solid ${item.rarityColor}40;`"
+                                        x-text="item.rarity || '--'"
+                                    ></span>
+                                </td>
+
+                                <!-- Price -->
+                                <td class="px-4 py-3 text-sm font-medium text-white" x-text="formatPrice(item.price, item.currencySymbol)"></td>
+
+                                <!-- Volume -->
+                                <td class="px-4 py-3 text-sm text-gray-300" x-text="formatVolume(item.volume)"></td>
+
+                                <!-- Last Updated -->
+                                <td class="px-4 py-3 text-sm text-gray-400" x-text="formatRelativeTime(item.updatedAt)"></td>
+
+                                <!-- 7 Days Trend -->
+                                <td class="px-4 py-3 text-sm font-medium" :class="formatTrend(item.trend7d).color" x-text="formatTrend(item.trend7d).text"></td>
+
+                                <!-- 30 Days Trend -->
+                                <td class="px-4 py-3 text-sm font-medium" :class="formatTrend(item.trend30d).color" x-text="formatTrend(item.trend30d).text"></td>
+
+                                <!-- Actions -->
+                                <td class="px-4 py-3 text-center">
+                                    <a
+                                        :href="`https://steamcommunity.com/market/listings/730/${encodeURIComponent(item.marketName)}`"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center justify-center bg-gray-700 hover:bg-steam-blue p-2 rounded transition-colors"
+                                        title="View on Steam Market"
+                                    >
+                                        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z" />
+                                        </svg>
+                                    </a>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <!-- Left: Items Info -->
+            <div class="text-sm text-gray-400">
+                Showing <span class="font-medium text-white" x-text="((page - 1) * perPage) + 1"></span>
+                to <span class="font-medium text-white" x-text="Math.min(page * perPage, pagination.total)"></span>
+                of <span class="font-medium text-white" x-text="pagination.total"></span> items
+            </div>
+
+            <!-- Center: Page Navigation -->
+            <div class="flex items-center space-x-2">
+                <!-- Previous Button -->
+                <button
+                    @click="goToPage(page - 1)"
+                    :disabled="page === 1"
+                    :class="page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'"
+                    class="px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700"
+                >
+                    Previous
+                </button>
+
+                <!-- Page Numbers (show current page and neighbors) -->
+                <template x-for="pageNum in getPageNumbers()" :key="pageNum">
+                    <button
+                        @click="goToPage(pageNum)"
+                        :class="pageNum === page ? 'bg-cs2-orange text-white' : 'bg-gray-800 text-white hover:bg-gray-700'"
+                        class="px-3 py-2 rounded-lg border border-gray-700"
+                        x-text="pageNum"
+                    ></button>
+                </template>
+
+                <!-- Next Button -->
+                <button
+                    @click="goToPage(page + 1)"
+                    :disabled="!pagination.hasMore"
+                    :class="!pagination.hasMore ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'"
+                    class="px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700"
+                >
+                    Next
+                </button>
+            </div>
+
+            <!-- Right: Per Page Selector -->
+            <div class="flex items-center space-x-2">
+                <label class="text-sm text-gray-400">Per page:</label>
+                <select
+                    x-model="perPage"
+                    @change="changePerPage($event.target.value)"
+                    class="px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-cs2-orange"
+                >
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+function itemsTable() {
+    return {
+        // State
+        items: [],
+        loading: false,
+        filters: {
+            search: '',
+            category: '',
+            subcategory: '',
+            type: '',
+            rarity: '',
+            stattrak: false,
+            souvenir: false,
+            minPrice: '',
+            maxPrice: ''
+        },
+        availableFilters: {
+            categories: {{ filters.categories|json_encode|raw }},
+            subcategories: {{ filters.subcategories|json_encode|raw }},
+            types: {{ filters.types|json_encode|raw }},
+            rarities: {{ filters.rarities|json_encode|raw }}
+        },
+        sortBy: 'name',
+        sortDirection: 'asc',
+        page: 1,
+        perPage: 25,
+        pagination: {
+            total: 0,
+            totalPages: 0,
+            hasMore: false
+        },
+        searchDebounce: null,
+
+        // Methods
+        async loadItems() {
+            this.loading = true;
+
+            const params = new URLSearchParams({
+                search: this.filters.search,
+                category: this.filters.category,
+                subcategory: this.filters.subcategory,
+                type: this.filters.type,
+                rarity: this.filters.rarity,
+                stattrak: this.filters.stattrak ? '1' : '',
+                souvenir: this.filters.souvenir ? '1' : '',
+                minPrice: this.filters.minPrice,
+                maxPrice: this.filters.maxPrice,
+                sortBy: this.sortBy,
+                sortDirection: this.sortDirection,
+                page: this.page,
+                perPage: this.perPage
+            });
+
+            // Remove empty params
+            for (let [key, value] of Array.from(params.entries())) {
+                if (!value) params.delete(key);
+            }
+
+            try {
+                const response = await fetch(`/items/data?${params}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    console.error('Error loading items:', data.error);
+                    // Show error message to user
+                } else {
+                    this.items = data.items;
+                    this.pagination = data.pagination;
+                    if (data.filters && data.filters.available) {
+                        this.availableFilters = data.filters.available;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch items:', error);
+                // Show error message to user
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        onSearchInput() {
+            clearTimeout(this.searchDebounce);
+            this.searchDebounce = setTimeout(() => {
+                this.page = 1; // Reset to page 1 on new search
+                this.loadItems();
+            }, 300);
+        },
+
+        onFilterChange() {
+            this.page = 1; // Reset to page 1 on filter change
+            this.loadItems();
+        },
+
+        clearFilters() {
+            this.filters = {
+                search: '',
+                category: '',
+                subcategory: '',
+                type: '',
+                rarity: '',
+                stattrak: false,
+                souvenir: false,
+                minPrice: '',
+                maxPrice: ''
+            };
+            this.page = 1;
+            this.loadItems();
+        },
+
+        sortByColumn(column) {
+            if (this.sortBy === column) {
+                // Toggle direction
+                this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                // New column, default to ascending
+                this.sortBy = column;
+                this.sortDirection = 'asc';
+            }
+            this.page = 1;
+            this.loadItems();
+        },
+
+        goToPage(pageNum) {
+            if (pageNum >= 1 && pageNum <= this.pagination.totalPages) {
+                this.page = pageNum;
+                this.loadItems();
+            }
+        },
+
+        changePerPage(newPerPage) {
+            this.perPage = parseInt(newPerPage);
+            this.page = 1;
+            this.loadItems();
+        },
+
+        getPageNumbers() {
+            const pages = [];
+            const maxPage = this.pagination.totalPages;
+
+            // Show current page and neighbors
+            if (this.page > 1) {
+                pages.push(this.page - 1);
+            }
+            pages.push(this.page);
+            if (this.page < maxPage) {
+                pages.push(this.page + 1);
+            }
+
+            return pages;
+        },
+
+        formatPrice(price, currencySymbol) {
+            if (price === null) return '--';
+            return `${currencySymbol}${price.toFixed(2)}`;
+        },
+
+        formatVolume(volume) {
+            if (volume === null) return '--';
+            return volume.toLocaleString();
+        },
+
+        formatTrend(trend) {
+            if (trend === null) return { text: '--', color: 'text-gray-400' };
+
+            const sign = trend >= 0 ? '+' : '';
+            const color = trend > 0 ? 'text-green-400' : trend < 0 ? 'text-red-400' : 'text-gray-400';
+
+            return {
+                text: `${sign}${trend.toFixed(1)}%`,
+                color: color
+            };
+        },
+
+        formatRelativeTime(isoDate) {
+            if (!isoDate) return '--';
+
+            const date = new Date(isoDate);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays} days ago`;
+            if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+            return `${Math.floor(diffDays / 30)} months ago`;
+        }
+    };
+}
+</script>
+{% endblock %}

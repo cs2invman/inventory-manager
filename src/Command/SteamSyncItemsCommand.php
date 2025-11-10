@@ -11,6 +11,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\LockInterface;
 
 #[AsCommand(
     name: 'app:steam:sync-items',
@@ -18,11 +20,17 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class SteamSyncItemsCommand extends Command
 {
+    private const MAX_FILES_PER_RUN = 2;
+    private const LOCK_TTL = 180; // 3 minutes max execution time (reduced since we only process 2 files)
+
+    private ?LockInterface $lock = null;
+
     public function __construct(
         private readonly ItemSyncService $syncService,
         private readonly EntityManagerInterface $entityManager,
         private readonly LoggerInterface $logger,
-        private readonly string $storageBasePath
+        private readonly string $storageBasePath,
+        private readonly LockFactory $lockFactory
     ) {
         parent::__construct();
     }
@@ -46,6 +54,22 @@ class SteamSyncItemsCommand extends Command
         // Set memory limit for processing
         ini_set('memory_limit', '768M');
 
+        // Acquire lock to prevent concurrent executions
+        // Using flock which is automatically released on process termination (even on crash/OOM)
+        $this->lock = $this->lockFactory->createLock('steam-sync-items', self::LOCK_TTL);
+
+        if (!$this->lock->acquire()) {
+            // Another instance is already running, exit silently
+            $this->logger->info('Sync already running, skipping this execution');
+            return Command::SUCCESS;
+        }
+
+        // Register signal handlers for graceful shutdown
+        if (function_exists('pcntl_signal')) {
+            pcntl_signal(SIGTERM, [$this, 'handleSignal']);
+            pcntl_signal(SIGINT, [$this, 'handleSignal']);
+        }
+
         try {
             // Find chunk files in import directory
             $importDir = $this->storageBasePath . '/import';
@@ -56,7 +80,15 @@ class SteamSyncItemsCommand extends Command
                 return Command::SUCCESS;
             }
 
-            // Process all chunk files
+            // Limit to MAX_FILES_PER_RUN files to prevent memory issues
+            $chunkFiles = array_slice($chunkFiles, 0, self::MAX_FILES_PER_RUN);
+
+            $this->logger->info('Starting sync', [
+                'files_found' => count($chunkFiles),
+                'max_per_run' => self::MAX_FILES_PER_RUN,
+            ]);
+
+            // Process chunk files
             return $this->executeChunkedSync($input, $output, $io, $chunkFiles);
 
         } catch (\Throwable $e) {
@@ -67,6 +99,11 @@ class SteamSyncItemsCommand extends Command
 
             $io->error('Failed to sync items: ' . $e->getMessage());
             return Command::FAILURE;
+        } finally {
+            // Always release the lock
+            if ($this->lock) {
+                $this->lock->release();
+            }
         }
     }
 
@@ -87,12 +124,9 @@ class SteamSyncItemsCommand extends Command
         $startTime = microtime(true);
         $processedDir = $this->ensureProcessedDirectory($this->storageBasePath);
 
-        // Accumulate external IDs across all chunks
-        $allExternalIds = [];
         $aggregatedStats = [
             'added' => 0,
             'updated' => 0,
-            'deactivated' => 0,
             'price_records_created' => 0,
             'skipped' => 0,
             'total' => 0,
@@ -111,13 +145,11 @@ class SteamSyncItemsCommand extends Command
             ]);
 
             try {
-                // Sync this chunk with deferred deactivation
+                // Sync this chunk
                 $stats = $this->syncService->syncFromJsonFile(
                     $chunkFile,
                     $skipPrices,
-                    null, // No progress callback for cron
-                    $allExternalIds,
-                    true // Defer deactivation
+                    null // No progress callback for cron
                 );
 
                 // Aggregate statistics
@@ -162,22 +194,7 @@ class SteamSyncItemsCommand extends Command
             }
         }
 
-        // Now run deactivation with all accumulated external IDs
-        $this->logger->info('Running deactivation check');
-
-        try {
-            $aggregatedStats['deactivated'] = $this->syncService->deactivateMissingItems($allExternalIds);
-            $this->logger->info('Deactivation completed', [
-                'deactivated' => $aggregatedStats['deactivated'],
-            ]);
-        } catch (\Throwable $e) {
-            $this->logger->warning('Failed to deactivate missing items', [
-                'error' => $e->getMessage(),
-            ]);
-        }
-
         // Final memory cleanup
-        unset($allExternalIds);
         $this->entityManager->clear();
         gc_collect_cycles();
 
@@ -312,6 +329,23 @@ class SteamSyncItemsCommand extends Command
         }
 
         rename($chunkFile, $destination);
+    }
+
+    /**
+     * Handle termination signals (SIGTERM, SIGINT) for graceful shutdown
+     */
+    public function handleSignal(int $signal): void
+    {
+        $this->logger->warning('Received termination signal, shutting down gracefully', [
+            'signal' => $signal,
+        ]);
+
+        // Release lock before exiting
+        if ($this->lock) {
+            $this->lock->release();
+        }
+
+        exit(0);
     }
 
 }

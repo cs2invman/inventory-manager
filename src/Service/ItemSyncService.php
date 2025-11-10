@@ -29,16 +29,12 @@ class ItemSyncService
      * @param string $filePath Path to the JSON file containing item data
      * @param bool $skipPrices Whether to skip creating price history records
      * @param callable|null $progressCallback Optional callback to report progress (receives current index)
-     * @param array|null $accumulatedExternalIds Array to accumulate external IDs across multiple syncs (for deferred deactivation)
-     * @param bool $deferDeactivation Whether to skip deactivation step (for chunked processing)
      * @return array Statistics about the sync operation
      */
     public function syncFromJsonFile(
         string $filePath,
         bool $skipPrices = false,
-        ?callable $progressCallback = null,
-        ?array &$accumulatedExternalIds = null,
-        bool $deferDeactivation = false
+        ?callable $progressCallback = null
     ): array
     {
         $this->logger->info('Starting item sync from JSON file', [
@@ -73,13 +69,10 @@ class ItemSyncService
         $stats = [
             'added' => 0,
             'updated' => 0,
-            'deactivated' => 0,
             'price_records_created' => 0,
             'skipped' => 0,
             'total' => count($itemsData),
         ];
-
-        $processedExternalIds = [];
 
         // Process in smaller independent batches to avoid memory issues
         // Reduced from 50 to 25 for better memory efficiency during chunked processing
@@ -108,15 +101,6 @@ class ItemSyncService
 
                         if ($result['price_created']) {
                             $stats['price_records_created']++;
-                        }
-
-                        if (isset($result['external_id'])) {
-                            $processedExternalIds[] = $result['external_id'];
-
-                            // Also add to accumulated IDs if provided (for chunked processing)
-                            if ($accumulatedExternalIds !== null) {
-                                $accumulatedExternalIds[] = $result['external_id'];
-                            }
                         }
 
                     } catch (\Throwable $e) {
@@ -162,28 +146,6 @@ class ItemSyncService
 
         // Free items data array to reduce memory
         unset($itemsData);
-
-        // Deactivate items not in the current sync (separate transaction)
-        // Skip this step if deferred deactivation is enabled (for chunked processing)
-        if (!$deferDeactivation) {
-            try {
-                $this->entityManager->beginTransaction();
-                $stats['deactivated'] = $this->deactivateMissingItems($processedExternalIds);
-                $this->entityManager->commit();
-
-                // Clear entity manager after deactivation
-                $this->entityManager->clear();
-            } catch (\Throwable $e) {
-                if ($this->entityManager->getConnection()->isTransactionActive()) {
-                    $this->entityManager->rollback();
-                }
-                $this->logger->warning('Failed to deactivate missing items', [
-                    'error' => $e->getMessage(),
-                ]);
-                // Clear entity manager even on failure
-                $this->entityManager->clear();
-            }
-        }
 
         $this->logger->info('Item sync completed successfully', $stats);
 
@@ -344,6 +306,20 @@ class ItemSyncService
         if (isset($data['points'])) {
             $item->setPoints((int) $data['points']);
         }
+
+        // Collection mapping (from tag7)
+        if (isset($data['tag7'])) {
+            $item->setCollection($data['tag7']);
+        }
+
+        // Stability indicators
+        if (isset($data['unstable'])) {
+            $item->setUnstable((bool) $data['unstable']);
+        }
+
+        if (isset($data['unstablereason'])) {
+            $item->setUnstableReason($data['unstablereason']);
+        }
     }
 
     /**
@@ -420,8 +396,8 @@ class ItemSyncService
     {
         return isset($itemData['pricelatestsell'])
             || isset($itemData['pricemedian'])
-            || isset($itemData['pricemin'])
-            || isset($itemData['pricemax']);
+            || isset($itemData['soldtotal'])
+            || isset($itemData['buyorderprice']);
     }
 
     /**
@@ -480,19 +456,52 @@ class ItemSyncService
             $itemPrice->setMedianPrice((string) $priceData['pricemedian']);
         }
 
-        if (isset($priceData['pricemin']) && $priceData['pricemin'] !== null) {
-            $itemPrice->setLowestPrice((string) $priceData['pricemin']);
-        }
-
-        if (isset($priceData['pricemax']) && $priceData['pricemax'] !== null) {
-            $itemPrice->setHighestPrice((string) $priceData['pricemax']);
-        }
-
-        // Set volume from sold data
+        // Sales volume fields
         if (isset($priceData['soldtotal']) && $priceData['soldtotal'] !== null) {
-            $itemPrice->setVolume((int) $priceData['soldtotal']);
-        } elseif (isset($priceData['sold30d']) && $priceData['sold30d'] !== null) {
-            $itemPrice->setVolume((int) $priceData['sold30d']);
+            $itemPrice->setSoldTotal((int) $priceData['soldtotal']);
+        }
+
+        if (isset($priceData['sold30d']) && $priceData['sold30d'] !== null) {
+            $itemPrice->setSold30d((int) $priceData['sold30d']);
+        }
+
+        if (isset($priceData['sold7d']) && $priceData['sold7d'] !== null) {
+            $itemPrice->setSold7d((int) $priceData['sold7d']);
+        }
+
+        if (isset($priceData['soldtoday']) && $priceData['soldtoday'] !== null) {
+            $itemPrice->setSoldToday((int) $priceData['soldtoday']);
+        }
+
+        // Order volume fields
+        if (isset($priceData['buyordervolume']) && $priceData['buyordervolume'] !== null) {
+            $itemPrice->setVolumeBuyOrders((int) $priceData['buyordervolume']);
+        }
+
+        if (isset($priceData['offervolume']) && $priceData['offervolume'] !== null) {
+            $itemPrice->setVolumeSellOrders((int) $priceData['offervolume']);
+        }
+
+        // Buy order price
+        if (isset($priceData['buyorderprice']) && $priceData['buyorderprice'] !== null) {
+            $itemPrice->setPriceBuyOrder((string) $priceData['buyorderprice']);
+        }
+
+        // Time-series median prices
+        if (isset($priceData['pricemedian']) && $priceData['pricemedian'] !== null) {
+            $itemPrice->setPriceMedian((string) $priceData['pricemedian']);
+        }
+
+        if (isset($priceData['pricemedian24h']) && $priceData['pricemedian24h'] !== null) {
+            $itemPrice->setPriceMedian24h((string) $priceData['pricemedian24h']);
+        }
+
+        if (isset($priceData['pricemedian7d']) && $priceData['pricemedian7d'] !== null) {
+            $itemPrice->setPriceMedian7d((string) $priceData['pricemedian7d']);
+        }
+
+        if (isset($priceData['pricemedian30d']) && $priceData['pricemedian30d'] !== null) {
+            $itemPrice->setPriceMedian30d((string) $priceData['pricemedian30d']);
         }
 
         // Only persist if we have at least a price value
@@ -504,34 +513,4 @@ class ItemSyncService
         return false;
     }
 
-    /**
-     * Mark items as inactive if they are not in the current sync
-     *
-     * @param array $currentExternalIds Array of external IDs from current sync
-     * @return int Number of items deactivated
-     */
-    public function deactivateMissingItems(array $currentExternalIds): int
-    {
-        if (empty($currentExternalIds)) {
-            return 0;
-        }
-
-        $qb = $this->entityManager->createQueryBuilder();
-        $qb->update(Item::class, 'i')
-            ->set('i.active', ':inactive')
-            ->where('i.externalId IS NOT NULL')
-            ->andWhere($qb->expr()->notIn('i.externalId', ':current_ids'))
-            ->andWhere('i.active = :active')
-            ->setParameter('inactive', false)
-            ->setParameter('current_ids', $currentExternalIds)
-            ->setParameter('active', true);
-
-        $count = $qb->getQuery()->execute();
-
-        $this->logger->info('Deactivated missing items', [
-            'count' => $count,
-        ]);
-
-        return $count;
-    }
 }

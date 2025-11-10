@@ -192,6 +192,10 @@ docker compose exec php php bin/console app:steam:sync-items
 
 **Schedule**: Weekly or when new items released.
 
+```bash
+*/2 * * * * cd /path/to/project && docker compose exec -T php php bin/console app:steam:sync-items >> var/log/steam-sync.log 2>&1
+```
+
 **Automated Sync**: Set up cron job (see CLAUDE.md for cron setup).
 
 ### Database Backups

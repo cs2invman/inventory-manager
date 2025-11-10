@@ -130,6 +130,18 @@ class Item
     #[ORM\Column(nullable: true)]
     private ?int $points = null;
 
+    /**
+     * Indicates if the item has unstable/unreliable pricing
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $unstable = false;
+
+    /**
+     * Reason why the item is marked as unstable
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $unstableReason = null;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -519,6 +531,28 @@ class Item
     public function setPoints(?int $points): static
     {
         $this->points = $points;
+        return $this;
+    }
+
+    public function isUnstable(): bool
+    {
+        return $this->unstable;
+    }
+
+    public function setUnstable(bool $unstable): static
+    {
+        $this->unstable = $unstable;
+        return $this;
+    }
+
+    public function getUnstableReason(): ?string
+    {
+        return $this->unstableReason;
+    }
+
+    public function setUnstableReason(?string $unstableReason): static
+    {
+        $this->unstableReason = $unstableReason;
         return $this;
     }
 }

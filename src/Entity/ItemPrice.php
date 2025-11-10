@@ -29,16 +29,40 @@ class ItemPrice
     private ?string $price = null;
 
     #[ORM\Column(type: Types::INTEGER, nullable: true)]
-    private ?int $volume = null;
+    private ?int $soldTotal = null;
+
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    private ?int $sold30d = null;
+
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    private ?int $sold7d = null;
+
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    private ?int $soldToday = null;
+
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    private ?int $volumeBuyOrders = null;
+
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    private ?int $volumeSellOrders = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
     private ?string $medianPrice = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
-    private ?string $lowestPrice = null;
+    private ?string $priceBuyOrder = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
-    private ?string $highestPrice = null;
+    private ?string $priceMedian = null;
+
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+    private ?string $priceMedian24h = null;
+
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+    private ?string $priceMedian7d = null;
+
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+    private ?string $priceMedian30d = null;
 
     #[ORM\Column(length: 50)]
     private ?string $source = null;
@@ -95,14 +119,69 @@ class ItemPrice
         return $this->price !== null ? (float) $this->price : null;
     }
 
-    public function getVolume(): ?int
+    public function getSoldTotal(): ?int
     {
-        return $this->volume;
+        return $this->soldTotal;
     }
 
-    public function setVolume(?int $volume): static
+    public function setSoldTotal(?int $soldTotal): static
     {
-        $this->volume = $volume;
+        $this->soldTotal = $soldTotal;
+        return $this;
+    }
+
+    public function getSold30d(): ?int
+    {
+        return $this->sold30d;
+    }
+
+    public function setSold30d(?int $sold30d): static
+    {
+        $this->sold30d = $sold30d;
+        return $this;
+    }
+
+    public function getSold7d(): ?int
+    {
+        return $this->sold7d;
+    }
+
+    public function setSold7d(?int $sold7d): static
+    {
+        $this->sold7d = $sold7d;
+        return $this;
+    }
+
+    public function getSoldToday(): ?int
+    {
+        return $this->soldToday;
+    }
+
+    public function setSoldToday(?int $soldToday): static
+    {
+        $this->soldToday = $soldToday;
+        return $this;
+    }
+
+    public function getVolumeBuyOrders(): ?int
+    {
+        return $this->volumeBuyOrders;
+    }
+
+    public function setVolumeBuyOrders(?int $volumeBuyOrders): static
+    {
+        $this->volumeBuyOrders = $volumeBuyOrders;
+        return $this;
+    }
+
+    public function getVolumeSellOrders(): ?int
+    {
+        return $this->volumeSellOrders;
+    }
+
+    public function setVolumeSellOrders(?int $volumeSellOrders): static
+    {
+        $this->volumeSellOrders = $volumeSellOrders;
         return $this;
     }
 
@@ -122,36 +201,84 @@ class ItemPrice
         return $this->medianPrice !== null ? (float) $this->medianPrice : null;
     }
 
-    public function getLowestPrice(): ?string
+    public function getPriceBuyOrder(): ?string
     {
-        return $this->lowestPrice;
+        return $this->priceBuyOrder;
     }
 
-    public function setLowestPrice(?string $lowestPrice): static
+    public function setPriceBuyOrder(?string $priceBuyOrder): static
     {
-        $this->lowestPrice = $lowestPrice;
+        $this->priceBuyOrder = $priceBuyOrder;
         return $this;
     }
 
-    public function getLowestPriceAsFloat(): ?float
+    public function getPriceBuyOrderAsFloat(): ?float
     {
-        return $this->lowestPrice !== null ? (float) $this->lowestPrice : null;
+        return $this->priceBuyOrder !== null ? (float) $this->priceBuyOrder : null;
     }
 
-    public function getHighestPrice(): ?string
+    public function getPriceMedian(): ?string
     {
-        return $this->highestPrice;
+        return $this->priceMedian;
     }
 
-    public function setHighestPrice(?string $highestPrice): static
+    public function setPriceMedian(?string $priceMedian): static
     {
-        $this->highestPrice = $highestPrice;
+        $this->priceMedian = $priceMedian;
         return $this;
     }
 
-    public function getHighestPriceAsFloat(): ?float
+    public function getPriceMedianAsFloat(): ?float
     {
-        return $this->highestPrice !== null ? (float) $this->highestPrice : null;
+        return $this->priceMedian !== null ? (float) $this->priceMedian : null;
+    }
+
+    public function getPriceMedian24h(): ?string
+    {
+        return $this->priceMedian24h;
+    }
+
+    public function setPriceMedian24h(?string $priceMedian24h): static
+    {
+        $this->priceMedian24h = $priceMedian24h;
+        return $this;
+    }
+
+    public function getPriceMedian24hAsFloat(): ?float
+    {
+        return $this->priceMedian24h !== null ? (float) $this->priceMedian24h : null;
+    }
+
+    public function getPriceMedian7d(): ?string
+    {
+        return $this->priceMedian7d;
+    }
+
+    public function setPriceMedian7d(?string $priceMedian7d): static
+    {
+        $this->priceMedian7d = $priceMedian7d;
+        return $this;
+    }
+
+    public function getPriceMedian7dAsFloat(): ?float
+    {
+        return $this->priceMedian7d !== null ? (float) $this->priceMedian7d : null;
+    }
+
+    public function getPriceMedian30d(): ?string
+    {
+        return $this->priceMedian30d;
+    }
+
+    public function setPriceMedian30d(?string $priceMedian30d): static
+    {
+        $this->priceMedian30d = $priceMedian30d;
+        return $this;
+    }
+
+    public function getPriceMedian30dAsFloat(): ?float
+    {
+        return $this->priceMedian30d !== null ? (float) $this->priceMedian30d : null;
     }
 
     public function getSource(): ?string

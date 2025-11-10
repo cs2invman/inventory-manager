@@ -35,7 +35,7 @@
                                     <div class="ml-10 flex items-baseline space-x-4">
                                         <a href="{{ path('inventory_index') }}" class="nav-link {% if app.request.get('_route') starts with 'inventory' %}active{% endif %}">Inventory</a>
                                         <a href="{{ path('ledger_index') }}" class="nav-link {% if app.request.get('_route') starts with 'ledger' %}active{% endif %}">Ledger</a>
-                                        <a href="#" class="nav-link">Items</a>
+                                        <a href="{{ path('items_index') }}" class="nav-link {% if app.request.get('_route') starts with 'items' %}active{% endif %}">Items</a>
                                     </div>
                                 </div>
                             </div>

@@ -134,10 +134,8 @@ class PriceHistoryService
         string $price,
         string $source,
         ?\DateTimeImmutable $priceDate = null,
-        ?int $volume = null,
-        ?string $medianPrice = null,
-        ?string $lowestPrice = null,
-        ?string $highestPrice = null
+        ?int $soldTotal = null,
+        ?string $medianPrice = null
     ): ItemPrice {
         $itemPrice = new ItemPrice();
         $itemPrice->setItem($item);
@@ -145,17 +143,11 @@ class PriceHistoryService
         $itemPrice->setSource($source);
         $itemPrice->setPriceDate($priceDate ?? new \DateTimeImmutable());
 
-        if ($volume !== null) {
-            $itemPrice->setVolume($volume);
+        if ($soldTotal !== null) {
+            $itemPrice->setSoldTotal($soldTotal);
         }
         if ($medianPrice !== null) {
             $itemPrice->setMedianPrice($medianPrice);
-        }
-        if ($lowestPrice !== null) {
-            $itemPrice->setLowestPrice($lowestPrice);
-        }
-        if ($highestPrice !== null) {
-            $itemPrice->setHighestPrice($highestPrice);
         }
 
         $this->entityManager->persist($itemPrice);
