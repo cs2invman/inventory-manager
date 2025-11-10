@@ -226,7 +226,6 @@ class ItemSyncService
             // Set required fields with defaults for new items
             $item->setSteamId($itemData['classid'] ?? 'unknown');
             $item->setType($itemData['quality'] ?? 'Normal');
-            $item->setCategory('Weapon'); // Default, can be improved later
             $item->setRarity($itemData['rarity'] ?? 'Common');
         } else {
             $result['action'] = 'updated';
@@ -234,6 +233,13 @@ class ItemSyncService
 
         // Map API fields to Item entity
         $this->mapItemFields($item, $itemData);
+
+        // Final fallback: Ensure rarity color is always set
+        // This catches edge cases where API provides neither "color" nor "rarity"
+        if (!$item->getRarityColor() && $item->getRarity()) {
+            $rarityColor = $this->getRarityColor($item->getRarity());
+            $item->setRarityColor($rarityColor);
+        }
 
         // Ensure item is active
         $item->setActive(true);
@@ -298,11 +304,41 @@ class ItemSyncService
             $item->setQuality($data['quality']);
         }
 
+        // Map rarity and rarity color based on category
         if (isset($data['rarity'])) {
             $item->setRarity($data['rarity']);
-            // Set rarity color based on rarity name
-            $rarityColor = $this->getRarityColor($data['rarity']);
+        }
+
+        // Determine category first (needed for color logic)
+        $category = $this->determineCategory($data, $item);
+        $item->setCategory($category);
+
+        // Set rarity color based on item category
+        // Stickers, charms, graffiti, patches, music kits: Use API's "color" field directly
+        // Weapons, knives, gloves: Use rarity-based color mapping
+        if (isset($data['color']) && $data['color']) {
+            // Determine if this item type should use API color directly
+            $useApiColor = in_array($category, ['Sticker', 'Charm', 'Graffiti', 'Patch', 'Music Kit', 'Agent'], true);
+
+            if ($useApiColor) {
+                // Use API's color field directly (add # prefix)
+                $item->setRarityColor('#' . $data['color']);
+            } else {
+                // Weapons/knives: Use rarity-based mapping
+                if ($item->getRarity()) {
+                    $rarityColor = $this->getRarityColor($item->getRarity());
+                    $item->setRarityColor($rarityColor);
+                }
+            }
+        } elseif ($item->getRarity()) {
+            // No API color provided, use rarity-based mapping as fallback
+            $rarityColor = $this->getRarityColor($item->getRarity());
             $item->setRarityColor($rarityColor);
+        }
+
+        // Map subcategory from tag2 (weapon type, collection, etc.)
+        if (isset($data['tag2']) && $data['tag2'] !== null) {
+            $item->setSubcategory($data['tag2']);
         }
 
         if (isset($data['points'])) {
@@ -336,6 +372,45 @@ class ItemSyncService
         ];
 
         return $colorMap[$rarity] ?? '#b0c3d9'; // Default to gray if unknown
+    }
+
+    /**
+     * Determine item category from API data or name patterns
+     */
+    private function determineCategory(array $data, Item $item): string
+    {
+        // Primary: Use API's tag1 field
+        if (isset($data['tag1']) && $data['tag1'] !== null) {
+            return $data['tag1'];
+        }
+
+        // Fallback: Detect from item name
+        $name = $item->getName() ?? $item->getHashName() ?? '';
+
+        if (str_starts_with($name, 'Charm |')) {
+            return 'Charm';
+        }
+        if (str_starts_with($name, 'Sticker |')) {
+            return 'Sticker';
+        }
+        if (str_starts_with($name, 'Graffiti |')) {
+            return 'Graffiti';
+        }
+        if (str_starts_with($name, 'Patch |')) {
+            return 'Patch';
+        }
+        if (str_starts_with($name, 'Music Kit |')) {
+            return 'Music Kit';
+        }
+        if (str_contains($name, '★') || str_contains($name, 'Knife')) {
+            return 'Knife';
+        }
+        if (str_starts_with($name, 'Agent |')) {
+            return 'Agent';
+        }
+
+        // Default to Weapon for guns
+        return 'Weapon';
     }
 
     /**
