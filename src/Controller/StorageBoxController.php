@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\StorageBox;
+use App\Service\StorageBoxService;
 use App\Service\StorageBoxTransactionService;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,7 +17,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class StorageBoxController extends AbstractController
 {
     public function __construct(
-        private StorageBoxTransactionService $transactionService
+        private StorageBoxTransactionService $transactionService,
+        private StorageBoxService $storageBoxService
     ) {}
 
     #[Route('/deposit/{id}', name: 'storage_box_deposit_form')]
@@ -196,6 +198,40 @@ class StorageBoxController extends AbstractController
         } catch (\Exception $e) {
             $this->addFlash('error', 'Withdrawal failed: ' . $e->getMessage());
             return $this->redirectToRoute('storage_box_withdraw_form', ['id' => $storageBox->getId()]);
+        }
+    }
+
+    #[Route('/create-manual', name: 'storage_box_create_manual', methods: ['GET'])]
+    public function createManualForm(): Response
+    {
+        return $this->render('storage_box/create_manual.html.twig');
+    }
+
+    #[Route('/create-manual', name: 'storage_box_create_manual_submit', methods: ['POST'])]
+    public function createManualSubmit(Request $request): Response
+    {
+        $name = trim($request->request->get('name', ''));
+
+        // Validation
+        if (empty($name)) {
+            $this->addFlash('error', 'Storage box name is required.');
+            return $this->render('storage_box/create_manual.html.twig', ['name' => $name]);
+        }
+
+        if (strlen($name) > 255) {
+            $this->addFlash('error', 'Storage box name must be 255 characters or less.');
+            return $this->render('storage_box/create_manual.html.twig', ['name' => $name]);
+        }
+
+        try {
+            $user = $this->getUser();
+            $box = $this->storageBoxService->createManualBox($user, $name);
+
+            $this->addFlash('success', sprintf("Manual storage box '%s' created successfully!", $name));
+            return $this->redirectToRoute('inventory_index', ['filter' => 'all']);
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Failed to create storage box: ' . $e->getMessage());
+            return $this->render('storage_box/create_manual.html.twig', ['name' => $name]);
         }
     }
 }

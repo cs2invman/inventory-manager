@@ -51,6 +51,7 @@ class InventoryController extends AbstractController
                 'actualCount' => $actualItemCount,
                 'isSynced' => (($box->getReportedCount() ?? $box->getItemCount()) === $actualItemCount),
                 'modificationDate' => $box->getModificationDate(),
+                'isManualBox' => $box->isManualBox(),
             ];
         }
 
@@ -307,7 +308,19 @@ class InventoryController extends AbstractController
      */
     private function hasCustomizations(\App\Entity\ItemUser $itemUser): bool
     {
-        // Don't group if item has any unique properties
+        $item = $itemUser->getItem();
+        $itemName = strtolower($item->getName() ?? '');
+        $isCharm = str_contains($itemName, 'charm |');
+
+        // For charms, only prevent grouping if they have pattern index
+        // Souvenir charms without patterns should be grouped
+        if ($isCharm) {
+            return $itemUser->getPatternIndex() !== null
+                || $itemUser->getStickers() !== null       // Items with stickers applied (unlikely for charms)
+                || $itemUser->getNameTag() !== null;       // Custom name tags
+        }
+
+        // For other items, don't group if they have any unique properties
         return $itemUser->getFloatValue() !== null
             || $itemUser->getPaintSeed() !== null      // Pattern index
             || $itemUser->getPatternIndex() !== null   // Alternative pattern field
@@ -315,6 +328,5 @@ class InventoryController extends AbstractController
             || $itemUser->getNameTag() !== null        // Custom name tags
             || $itemUser->isStattrak()                 // StatTrak items
             || $itemUser->isSouvenir();                // Souvenir items
-        // Note: keychain/charm is NOT checked here - charms can be grouped if they have no other unique properties
     }
 }
