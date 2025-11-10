@@ -11,14 +11,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateCounts() {
         const addChecked = document.querySelectorAll('#items-to-add-grid input[type="checkbox"]:checked').length;
         const removeChecked = document.querySelectorAll('#items-to-remove-grid input[type="checkbox"]:checked').length;
-        const totalSelected = addChecked + removeChecked;
+        const storageBoxChecked = document.querySelectorAll('#storage-boxes-grid input[type="checkbox"]:checked').length;
+        const totalSelected = addChecked + removeChecked + storageBoxChecked;
 
         const addCountEl = document.getElementById('items-to-add-count');
         const removeCountEl = document.getElementById('items-to-remove-count');
+        const storageBoxCountEl = document.getElementById('storage-boxes-selected-count');
         const totalCountEl = document.getElementById('total-selected-count');
 
         if (addCountEl) addCountEl.textContent = addChecked;
         if (removeCountEl) removeCountEl.textContent = removeChecked;
+        if (storageBoxCountEl) storageBoxCountEl.textContent = storageBoxChecked;
         if (totalCountEl) totalCountEl.textContent = totalSelected;
     }
 
@@ -66,6 +69,28 @@ document.addEventListener('DOMContentLoaded', function() {
     if (deselectAllRemove) {
         deselectAllRemove.addEventListener('click', () => {
             document.querySelectorAll('#items-to-remove-grid input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            updateCounts();
+        });
+    }
+
+    // Storage boxes selection controls
+    const selectAllStorageBoxes = document.getElementById('select-all-storage-boxes');
+    const deselectAllStorageBoxes = document.getElementById('deselect-all-storage-boxes');
+
+    if (selectAllStorageBoxes) {
+        selectAllStorageBoxes.addEventListener('click', () => {
+            document.querySelectorAll('#storage-boxes-grid input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+            updateCounts();
+        });
+    }
+
+    if (deselectAllStorageBoxes) {
+        deselectAllStorageBoxes.addEventListener('click', () => {
+            document.querySelectorAll('#storage-boxes-grid input[type="checkbox"]').forEach(cb => {
                 cb.checked = false;
             });
             updateCounts();
@@ -148,6 +173,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Visual feedback for unchecked items (reduce opacity)
     document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        // Set initial opacity based on checkbox state
+        const card = cb.closest('.card');
+        if (card) {
+            card.style.opacity = cb.checked ? '1' : '0.5';
+        }
+
+        // Update opacity on change
         cb.addEventListener('change', function() {
             const card = this.closest('.card');
             if (card) {

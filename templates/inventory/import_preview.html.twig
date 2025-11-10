@@ -78,10 +78,60 @@
             <div class="card">
                 <div class="text-center">
                     <p class="text-sm font-medium text-gray-400 mb-2">Storage Boxes</p>
-                    <p class="text-4xl font-bold text-white">{{ preview.storageBoxCount }}</p>
+                    <p class="text-4xl font-bold text-white">
+                        <span id="storage-boxes-selected-count">0</span> / <span id="storage-boxes-total-count">{{ preview.storageBoxCount }}</span>
+                    </p>
                 </div>
             </div>
         </div>
+
+        <!-- Storage Boxes Section -->
+        {% if preview.storageBoxCount > 0 %}
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
+                <h2 class="text-2xl font-bold text-white">Storage Boxes</h2>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" id="select-all-storage-boxes" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm">
+                        Select All
+                    </button>
+                    <button type="button" id="deselect-all-storage-boxes" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm">
+                        Deselect All
+                    </button>
+                </div>
+            </div>
+
+            <div id="storage-boxes-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {% for boxData in preview.storageBoxesData %}
+                <div class="card relative storage-box-item" data-storage-box-id="storageBox-{{ boxData.asset_id }}">
+                    <label class="cursor-pointer block">
+                        <input type="checkbox"
+                               class="storage-box-checkbox absolute top-3 right-3 w-5 h-5 rounded"
+                               data-item-id="storageBox-{{ boxData.asset_id }}"
+                               value="storageBox-{{ boxData.asset_id }}">
+
+                        <div class="flex items-center space-x-4">
+                            <!-- Storage box icon -->
+                            <div class="flex-shrink-0">
+                                <svg class="w-12 h-12 text-cs2-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                </svg>
+                            </div>
+
+                            <!-- Box info -->
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-white truncate">{{ boxData.name }}</p>
+                                <p class="text-xs text-gray-400">{{ boxData.item_count }} items</p>
+                                {% if boxData.modification_date %}
+                                <p class="text-xs text-gray-500">Modified: {{ boxData.modification_date|date('M d, Y') }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Items to Add Section -->
         {% if preview.itemsToAddData is not empty %}

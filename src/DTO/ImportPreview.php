@@ -14,6 +14,7 @@ class ImportPreview
         public readonly array $errors,
         public readonly string $sessionKey,
         public readonly int $storageBoxCount = 0,
+        public readonly array $storageBoxesData = [],
     ) {
     }
 
@@ -39,6 +40,7 @@ class ImportPreview
             'errors' => $this->errors,
             'session_key' => $this->sessionKey,
             'storage_box_count' => $this->storageBoxCount,
+            'storage_boxes_data' => $this->storageBoxesData,
         ];
     }
 }

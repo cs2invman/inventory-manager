@@ -196,6 +196,7 @@ class InventoryImportService
             errors: $errors,
             sessionKey: $sessionKey,
             storageBoxCount: count($storageBoxesData),
+            storageBoxesData: $storageBoxesData,
         );
     }
 
@@ -206,7 +207,8 @@ class InventoryImportService
         User $user,
         string $sessionKey,
         array $selectedAddIds = [],
-        array $selectedRemoveIds = []
+        array $selectedRemoveIds = [],
+        array $selectedStorageBoxIds = []
     ): ImportResult {
         $sessionData = $this->retrieveFromSession($sessionKey);
 
@@ -235,9 +237,28 @@ class InventoryImportService
         $this->entityManager->beginTransaction();
 
         try {
-            // Sync storage boxes FIRST
-            if (!empty($storageBoxesData)) {
-                $this->storageBoxService->syncStorageBoxes($user, $storageBoxesData);
+            // Sync only selected storage boxes FIRST
+            if (!empty($selectedStorageBoxIds) && !empty($storageBoxesData)) {
+                // Extract asset IDs from selected IDs (remove 'storageBox-' prefix)
+                $selectedAssetIds = array_map(
+                    fn($id) => str_replace('storageBox-', '', $id),
+                    $selectedStorageBoxIds
+                );
+
+                // Filter storage boxes to only include selected ones
+                $selectedStorageBoxesData = array_filter(
+                    $storageBoxesData,
+                    fn($boxData) => in_array($boxData['asset_id'] ?? null, $selectedAssetIds)
+                );
+
+                if (!empty($selectedStorageBoxesData)) {
+                    $this->storageBoxService->syncStorageBoxes($user, $selectedStorageBoxesData);
+                    $this->logger->info('Synced selected storage boxes during import', [
+                        'user_id' => $user->getId(),
+                        'total_boxes' => count($storageBoxesData),
+                        'selected_boxes' => count($selectedStorageBoxesData),
+                    ]);
+                }
             }
 
             // Extract assetIds from selected remove IDs

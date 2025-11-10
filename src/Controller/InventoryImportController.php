@@ -110,15 +110,18 @@ class InventoryImportController extends AbstractController
             return $this->redirectToRoute('inventory_import_form');
         }
 
-        // Separate add vs remove IDs based on prefix
+        // Separate add vs remove vs storage box IDs based on prefix
         $selectedAddIds = [];
         $selectedRemoveIds = [];
+        $selectedStorageBoxIds = [];
 
         foreach ($selectedItems as $itemId) {
             if (str_starts_with($itemId, 'add-')) {
                 $selectedAddIds[] = $itemId;
             } elseif (str_starts_with($itemId, 'remove-')) {
                 $selectedRemoveIds[] = $itemId;
+            } elseif (str_starts_with($itemId, 'storageBox-')) {
+                $selectedStorageBoxIds[] = $itemId;
             }
         }
 
@@ -128,7 +131,8 @@ class InventoryImportController extends AbstractController
                 $user,
                 $sessionKey,
                 $selectedAddIds,
-                $selectedRemoveIds
+                $selectedRemoveIds,
+                $selectedStorageBoxIds
             );
 
             if ($result->isSuccess()) {
