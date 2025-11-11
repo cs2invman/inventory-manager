@@ -281,6 +281,12 @@ class InventoryController extends AbstractController
     private function isGroupableItem(\App\Entity\Item $item): bool
     {
         $name = strtolower($item->getName() ?? '');
+        $category = $item->getCategory();
+
+        // Group if category is Container (includes all case types, sealed items, etc.)
+        if ($category === 'Container') {
+            return true;
+        }
 
         // Group if item name contains these keywords AND has no customizations
         $groupableKeywords = [
