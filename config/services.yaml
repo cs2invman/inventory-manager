@@ -46,10 +46,12 @@ services:
     App\Command\SteamDownloadItemsCommand:
         arguments:
             $storageBasePath: '%steam_items.storage_path%'
+            $downloadLogger: '@monolog.logger.steam_download'
 
     App\Command\SteamSyncItemsCommand:
         arguments:
             $storageBasePath: '%steam_items.storage_path%'
+            $syncLogger: '@monolog.logger.steam_sync'
 
     # Login Rate Limiting
     App\EventSubscriber\LoginRateLimitSubscriber:

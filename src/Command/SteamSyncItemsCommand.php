@@ -28,6 +28,7 @@ class SteamSyncItemsCommand extends Command
     public function __construct(
         private readonly ItemSyncService $syncService,
         private readonly EntityManagerInterface $entityManager,
+        private readonly LoggerInterface $syncLogger,
         private readonly LoggerInterface $logger,
         private readonly string $storageBasePath,
         private readonly LockFactory $lockFactory
@@ -60,7 +61,7 @@ class SteamSyncItemsCommand extends Command
 
         if (!$this->lock->acquire()) {
             // Another instance is already running, exit silently
-            $this->logger->info('Sync already running, skipping this execution');
+            $this->syncLogger->info('Sync already running, skipping this execution');
             return Command::SUCCESS;
         }
 
@@ -83,17 +84,18 @@ class SteamSyncItemsCommand extends Command
             // Limit to MAX_FILES_PER_RUN files to prevent memory issues
             $chunkFiles = array_slice($chunkFiles, 0, self::MAX_FILES_PER_RUN);
 
-            $this->logger->info('Starting sync', [
-                'files_found' => count($chunkFiles),
-                'max_per_run' => self::MAX_FILES_PER_RUN,
+            $this->syncLogger->info('Files found for processing', [
+                'count' => count($chunkFiles),
+                'files' => array_map('basename', $chunkFiles),
             ]);
 
             // Process chunk files
             return $this->executeChunkedSync($input, $output, $io, $chunkFiles);
 
         } catch (\Throwable $e) {
-            $this->logger->error('Failed to sync items from JSON file', [
+            $this->syncLogger->error('Sync failed', [
                 'error' => $e->getMessage(),
+                'error_class' => get_class($e),
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -115,11 +117,6 @@ class SteamSyncItemsCommand extends Command
         $chunkCount = count($chunkFiles);
         $skipPrices = $input->getOption('skip-prices');
 
-        $this->logger->info('Starting chunked sync', [
-            'chunk_count' => $chunkCount,
-            'skip_prices' => $skipPrices,
-        ]);
-
         // Track progress
         $startTime = microtime(true);
         $processedDir = $this->ensureProcessedDirectory($this->storageBasePath);
@@ -140,10 +137,6 @@ class SteamSyncItemsCommand extends Command
             $chunkNum = $index + 1;
             $filename = basename($chunkFile);
 
-            $this->logger->info("Processing chunk {$chunkNum}/{$chunkCount}", [
-                'file' => $filename,
-            ]);
-
             try {
                 // Sync this chunk
                 $stats = $this->syncService->syncFromJsonFile(
@@ -162,10 +155,15 @@ class SteamSyncItemsCommand extends Command
                 // Move processed chunk to processed directory
                 $this->moveToProcessed($chunkFile, $processedDir);
 
-                $this->logger->info("Chunk {$chunkNum}/{$chunkCount} completed", [
-                    'added' => $stats['added'],
-                    'updated' => $stats['updated'],
-                    'skipped' => $stats['skipped'],
+                $this->syncLogger->info("Chunk {$chunkNum}/{$chunkCount} completed", [
+                    'file' => $filename,
+                    'chunk_stats' => [
+                        'added' => $stats['added'],
+                        'updated' => $stats['updated'],
+                        'skipped' => $stats['skipped'],
+                    ],
+                    'total_processed' => $aggregatedStats['total'],
+                    'memory_peak' => $this->formatBytes(memory_get_peak_usage(true)),
                 ]);
 
                 // AGGRESSIVE MEMORY CLEANUP
@@ -178,11 +176,10 @@ class SteamSyncItemsCommand extends Command
 
             } catch (\Throwable $e) {
                 // Log error but continue processing
-                $this->logger->error('Failed to process chunk file', [
+                $this->syncLogger->error('Chunk processing failed', [
                     'file' => $filename,
-                    'chunk' => $chunkNum,
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
+                    'error_class' => get_class($e),
                 ]);
 
                 // Clean up and continue
@@ -203,10 +200,12 @@ class SteamSyncItemsCommand extends Command
         $duration = round(microtime(true) - $startTime, 2);
 
         // Log final statistics
-        $this->logger->info('Sync completed successfully', array_merge($aggregatedStats, [
+        $this->syncLogger->info('Sync completed successfully', [
+            'total_stats' => $aggregatedStats,
             'chunks_processed' => $chunkCount,
             'duration_seconds' => $duration,
-        ]));
+            'memory_peak' => $this->formatBytes(memory_get_peak_usage(true)),
+        ]);
 
         return Command::SUCCESS;
     }
@@ -221,7 +220,7 @@ class SteamSyncItemsCommand extends Command
         $limit = $this->parseMemoryLimit(ini_get('memory_limit'));
         $percentage = $limit > 0 ? ($current / $limit) * 100 : 0;
 
-        $this->logger->info('Memory usage', [
+        $this->syncLogger->info('Memory usage', [
             'context' => $context,
             'current' => $this->formatBytes($current),
             'peak' => $this->formatBytes($peak),
@@ -231,7 +230,7 @@ class SteamSyncItemsCommand extends Command
 
         // Warn if memory usage is high
         if ($percentage > 80) {
-            $this->logger->warning('Memory usage high', [
+            $this->syncLogger->warning('Memory usage high', [
                 'context' => $context,
                 'percentage' => round($percentage, 2) . '%',
                 'current' => $this->formatBytes($current),

@@ -1,6 +1,8 @@
 monolog:
     channels:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - steam_download # Dedicated channel for steam:download-items command
+        - steam_sync # Dedicated channel for steam:sync-items command
 
 when@dev:
     monolog:
@@ -22,6 +24,18 @@ when@dev:
                 type: console
                 process_psr_3_messages: false
                 channels: ["!event", "!doctrine", "!console"]
+            steam_download:
+                type: stream
+                path: "%kernel.logs_dir%/cron-steam-download.log"
+                level: info
+                channels: [steam_download]
+                formatter: monolog.formatter.json
+            steam_sync:
+                type: stream
+                path: "%kernel.logs_dir%/cron-steam-sync.log"
+                level: info
+                channels: [steam_sync]
+                formatter: monolog.formatter.json
 
 when@test:
     monolog:
@@ -60,3 +74,15 @@ when@prod:
                 channels: [deprecation]
                 path: "%kernel.logs_dir%/deprecation.log"
                 level: info
+            steam_download:
+                type: stream
+                path: "%kernel.logs_dir%/cron-steam-download.log"
+                level: info
+                channels: [steam_download]
+                formatter: monolog.formatter.json
+            steam_sync:
+                type: stream
+                path: "%kernel.logs_dir%/cron-steam-sync.log"
+                level: info
+                channels: [steam_sync]
+                formatter: monolog.formatter.json

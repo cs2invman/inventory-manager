@@ -22,6 +22,7 @@ class SteamDownloadItemsCommand extends Command
 
     public function __construct(
         private readonly SteamWebApiClient $apiClient,
+        private readonly LoggerInterface $downloadLogger,
         private readonly LoggerInterface $logger,
         private readonly string $storageBasePath
     ) {
@@ -53,6 +54,9 @@ class SteamDownloadItemsCommand extends Command
         // Reduce memory limit with chunked downloads (was 1024M, now 512M)
         ini_set('memory_limit', '512M');
 
+        // Log command start
+        $this->downloadLogger->info('Download command started');
+
         try {
             // Determine output directory
             $outputDir = $input->getOption('output-dir') ?? $this->storageBasePath;
@@ -74,6 +78,9 @@ class SteamDownloadItemsCommand extends Command
             if (!$input->getOption('force')) {
                 $recentFile = $this->findRecentFile($outputDir);
                 if ($recentFile) {
+                    $this->downloadLogger->info('Recent file found, skipping download', [
+                        'file' => basename($recentFile),
+                    ]);
                     $io->warning("A recent file was downloaded less than " . self::RECENT_FILE_THRESHOLD_MINUTES . " minutes ago:");
                     $io->text("  {$recentFile}");
                     $io->text("Use --force to download anyway.");
@@ -117,6 +124,13 @@ class SteamDownloadItemsCommand extends Command
             $totalItemsDownloaded += $firstChunkItemCount;
             $chunks[] = $filename;
 
+            $this->downloadLogger->info("Chunk {$page} downloaded", [
+                'chunk_num' => $page,
+                'file' => $filename,
+                'items_in_chunk' => $firstChunkItemCount,
+                'total_items' => $totalItemsDownloaded,
+            ]);
+
             $io->text("Chunk {$page} of ~{$totalChunks}: {$firstChunkItemCount} items, {$this->formatBytes($bytesWritten)}");
 
             // Download remaining chunks
@@ -145,6 +159,13 @@ class SteamDownloadItemsCommand extends Command
                 $totalBytesWritten += $bytesWritten;
                 $totalItemsDownloaded += $chunkItemCount;
                 $chunks[] = $filename;
+
+                $this->downloadLogger->info("Chunk {$page} downloaded", [
+                    'chunk_num' => $page,
+                    'file' => $filename,
+                    'items_in_chunk' => $chunkItemCount,
+                    'total_items' => $totalItemsDownloaded,
+                ]);
 
                 $io->text("Chunk {$page} of ~{$totalChunks}: {$chunkItemCount} items, {$this->formatBytes($bytesWritten)}");
 
@@ -176,7 +197,20 @@ class SteamDownloadItemsCommand extends Command
             $duration = round(microtime(true) - $startTime, 2);
 
             // Clean up old files (keep last 7 days)
-            $this->cleanupOldFiles($outputDir);
+            $deletedCount = $this->cleanupOldFiles($outputDir);
+            if ($deletedCount > 0) {
+                $this->downloadLogger->info('Cleaned up old files', [
+                    'files_deleted' => $deletedCount,
+                ]);
+            }
+
+            // Log completion
+            $this->downloadLogger->info('Download completed successfully', [
+                'total_items' => $totalItemsDownloaded,
+                'total_chunks' => $actualTotalChunks,
+                'duration_seconds' => $duration,
+                'memory_peak' => $this->formatBytes(memory_get_peak_usage(true)),
+            ]);
 
             // Display success message
             $io->newLine();
@@ -194,8 +228,9 @@ class SteamDownloadItemsCommand extends Command
             return Command::SUCCESS;
 
         } catch (\Throwable $e) {
-            $this->logger->error('Failed to download items from SteamWebAPI', [
+            $this->downloadLogger->error('Download failed', [
                 'error' => $e->getMessage(),
+                'error_class' => get_class($e),
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -232,9 +267,10 @@ class SteamDownloadItemsCommand extends Command
     /**
      * Clean up old download files (both single files and chunks)
      */
-    private function cleanupOldFiles(string $directory): void
+    private function cleanupOldFiles(string $directory): int
     {
         $threshold = time() - (7 * 24 * 60 * 60); // 7 days ago
+        $deletedCount = 0;
 
         // Clean up root-level single files (legacy format)
         $pattern = $directory . '/items-*.json';
@@ -249,7 +285,7 @@ class SteamDownloadItemsCommand extends Command
 
                 if (filemtime($file) < $threshold) {
                     unlink($file);
-                    $this->logger->info('Deleted old item file', ['file' => $file]);
+                    $deletedCount++;
                 }
             }
         }
@@ -264,7 +300,7 @@ class SteamDownloadItemsCommand extends Command
                 foreach ($chunkFiles as $file) {
                     if (filemtime($file) < $threshold) {
                         unlink($file);
-                        $this->logger->info('Deleted old chunk file from import', ['file' => $file]);
+                        $deletedCount++;
                     }
                 }
             }
@@ -280,11 +316,13 @@ class SteamDownloadItemsCommand extends Command
                 foreach ($processedFiles as $file) {
                     if (filemtime($file) < $threshold) {
                         unlink($file);
-                        $this->logger->info('Deleted old chunk file from processed', ['file' => $file]);
+                        $deletedCount++;
                     }
                 }
             }
         }
+
+        return $deletedCount;
     }
 
     /**

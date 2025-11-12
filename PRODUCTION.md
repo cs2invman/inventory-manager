@@ -181,22 +181,84 @@ framework:
 
 ## Maintenance
 
-### Syncing Steam Items
+## Cron Job Configuration
 
-Update CS2 items database periodically:
+### Setting Up Cron Jobs
 
+**Open crontab editor:**
 ```bash
-docker compose exec php php bin/console app:steam:download-items
-docker compose exec php php bin/console app:steam:sync-items
+crontab -e
 ```
 
-**Schedule**: Weekly or when new items released.
-
+**Add the cron entries** (adjust path and schedule as needed):
 ```bash
-*/2 * * * * cd /path/to/project && docker compose exec -T php php bin/console app:steam:sync-items >> var/log/steam-sync.log 2>&1
+# CS2 Inventory - Download Steam items weekly (Sundays at 3 AM)
+0 3 * * 0 cd /home/user/cs2inventory && docker compose exec -T php php bin/console app:steam:download-items >> /dev/null 2>&1
+
+# CS2 Inventory - Sync downloaded items every 2 minutes
+*/2 * * * * cd /home/user/cs2inventory && docker compose exec -T php php bin/console app:steam:sync-items >> /dev/null 2>&1
 ```
 
-**Automated Sync**: Set up cron job (see CLAUDE.md for cron setup).
+**Notes:**
+- Use `-T` flag with `docker compose exec` for cron compatibility
+- Console output redirected to `/dev/null` - logs go to dedicated files
+- `app:steam:sync-items` exits silently if no files to process
+- Adjust paths to match your deployment location
+
+## Command Logs
+
+Each command writes to its own log file in `var/log/`:
+
+| Command | Log File |
+|---------|----------|
+| `app:steam:download-items` | `var/log/cron-steam-download.log` |
+| `app:steam:sync-items` | `var/log/cron-steam-sync.log` |
+
+**Location:** `./var/log/` (relative to project root)
+
+### Log Format
+
+All logs are JSON-formatted, one entry per line.
+
+**Download log example:**
+```json
+{
+  "message": "Download completed successfully",
+  "context": {
+    "total_items": 26127,
+    "total_chunks": 5,
+    "duration_seconds": 12.34,
+    "memory_peak": "245MB"
+  },
+  "level_name": "INFO",
+  "datetime": "2025-01-15T10:30:45+00:00"
+}
+```
+
+**Sync log example:**
+```json
+{
+  "message": "Chunk 2/5 completed",
+  "context": {
+    "file": "items-chunk-2025-01-15-120000-002-of-005.json",
+    "chunk_stats": {"added": 145, "updated": 5234, "skipped": 121},
+    "total_processed": 11000,
+    "memory_peak": "345MB"
+  },
+  "level_name": "INFO",
+  "datetime": "2025-01-15T10:32:15+00:00"
+}
+```
+
+**View logs:**
+```bash
+# View recent entries
+tail -n 50 var/log/cron-steam-download.log
+tail -n 50 var/log/cron-steam-sync.log
+
+# Follow in real-time
+tail -f var/log/cron-steam-sync.log
+```
 
 ### Database Backups
 
