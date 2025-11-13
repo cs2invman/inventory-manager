@@ -34,6 +34,7 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 
 **Item** (Steam marketplace data) → **ItemPrice** (one-to-many, price history)
 **Item** → **ItemUser** (one-to-many, user instances)
+**Item** → **currentPrice** (reference to latest ItemPrice for query optimization)
 
 **ItemUser** belongs to **User**, **Item**, optionally **StorageBox**
 - Tracks: assetId, floatValue, paintSeed, wearCategory, isStattrak, isSouvenir
@@ -55,7 +56,7 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 
 **SteamWebApiClient**: Fetches CS2 data from SteamWebAPI.com (5500 items/request)
 
-**ItemSyncService**: Syncs JSON files to database, handles deduplication by external_id, deferred deactivation for chunks
+**ItemSyncService**: Syncs JSON files to database, handles deduplication by external_id, deferred deactivation for chunks. Auto-updates Item.currentPrice when adding new prices
 
 **InventoryImportService**: Parses Steam inventory JSON, matches by classId, extracts float/stickers/keychains, import deletes only items where `storageBox = null`. Skips default Music Kit (Valve, CS:GO)
 
@@ -127,6 +128,9 @@ docker compose exec php php bin/console app:list-users
 # Steam data sync (chunked for memory efficiency)
 docker compose exec php php bin/console app:steam:download-items  # Downloads chunks
 docker compose exec php php bin/console app:steam:sync-items      # Syncs to DB (cron-optimized)
+
+# Item management
+docker compose exec php php bin/console app:item:backfill-current-price  # Backfill currentPrice for existing items
 
 # Database
 docker compose exec php php bin/console make:migration
