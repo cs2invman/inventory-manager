@@ -658,4 +658,34 @@ class ItemRepository extends ServiceEntityRepository
 
         return array_map(fn($row) => (int) $row['id'], $results);
     }
+
+    /**
+     * Find items by hash names with current price joined
+     * Returns array indexed by hashName for efficient lookup
+     *
+     * @param array $hashNames Array of hash names to find
+     * @return array<string, Item> Array of Items indexed by hashName
+     */
+    public function findByHashNamesWithCurrentPrice(array $hashNames): array
+    {
+        if (empty($hashNames)) {
+            return [];
+        }
+
+        $items = $this->createQueryBuilder('i')
+            ->select('i, cp')
+            ->leftJoin('i.currentPrice', 'cp')
+            ->where('i.hashName IN (:hashNames)')
+            ->setParameter('hashNames', $hashNames)
+            ->getQuery()
+            ->getResult();
+
+        // Build lookup map indexed by hashName
+        $itemsByHashName = [];
+        foreach ($items as $item) {
+            $itemsByHashName[$item->getHashName()] = $item;
+        }
+
+        return $itemsByHashName;
+    }
 }

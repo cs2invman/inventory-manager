@@ -155,6 +155,14 @@ class Item
     private Collection $priceHistory;
 
     /**
+     * Reference to the current/latest price for efficient joins
+     * Updated automatically during steam sync when new prices are added
+     */
+    #[ORM\ManyToOne(targetEntity: ItemPrice::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?ItemPrice $currentPrice = null;
+
+    /**
      * @var Collection<int, ItemUser>
      */
     #[ORM\OneToMany(targetEntity: ItemUser::class, mappedBy: 'item', cascade: ['persist'])]
@@ -381,6 +389,17 @@ class Item
             }
         }
 
+        return $this;
+    }
+
+    public function getCurrentPrice(): ?ItemPrice
+    {
+        return $this->currentPrice;
+    }
+
+    public function setCurrentPrice(?ItemPrice $currentPrice): static
+    {
+        $this->currentPrice = $currentPrice;
         return $this;
     }
 

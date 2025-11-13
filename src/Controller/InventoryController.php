@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Repository\ItemRepository;
 use App\Repository\ItemUserRepository;
 use App\Repository\StorageBoxRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,6 +18,7 @@ class InventoryController extends AbstractController
 {
     public function __construct(
         private ItemUserRepository $itemUserRepository,
+        private ItemRepository $itemRepository,
         private StorageBoxRepository $storageBoxRepository,
         private EntityManagerInterface $entityManager
     ) {
@@ -75,20 +77,45 @@ class InventoryController extends AbstractController
         $totalValue = 0.0;
         $itemsWithPrices = [];
 
+        // OPTIMIZATION: Collect all unique sticker and keychain hashNames upfront
+        $stickerHashNames = [];
+        $keychainHashNames = [];
+
+        foreach ($filteredItems as $itemUser) {
+            $stickers = $itemUser->getStickers();
+            if ($stickers !== null && is_array($stickers)) {
+                foreach ($stickers as $sticker) {
+                    if (isset($sticker['name'])) {
+                        $type = $sticker['type'] ?? 'Sticker';
+                        $stickerHashNames[] = $type . ' | ' . $sticker['name'];
+                    }
+                }
+            }
+
+            $keychain = $itemUser->getKeychain();
+            if ($keychain !== null && isset($keychain['name'])) {
+                $keychainHashNames[] = 'Charm | ' . $keychain['name'];
+            }
+        }
+
+        // OPTIMIZATION: Batch query for all stickers and keychains with their current prices
+        $stickerHashNames = array_unique($stickerHashNames);
+        $keychainHashNames = array_unique($keychainHashNames);
+
+        $stickerItemsMap = !empty($stickerHashNames)
+            ? $this->itemRepository->findByHashNamesWithCurrentPrice($stickerHashNames)
+            : [];
+
+        $keychainItemsMap = !empty($keychainHashNames)
+            ? $this->itemRepository->findByHashNamesWithCurrentPrice($keychainHashNames)
+            : [];
+
+        // Now process each item using the preloaded data
         foreach ($filteredItems as $itemUser) {
             $item = $itemUser->getItem();
 
-            // Get the latest price for this item
-            $latestPrice = $this->entityManager->createQuery('
-                SELECT ip
-                FROM App\Entity\ItemPrice ip
-                WHERE ip.item = :item
-                ORDER BY ip.priceDate DESC
-            ')
-            ->setParameter('item', $item)
-            ->setMaxResults(1)
-            ->getOneOrNullResult();
-
+            // OPTIMIZATION: Use preloaded currentPrice instead of querying
+            $latestPrice = $item->getCurrentPrice();
             $priceValue = $latestPrice ? (float) $latestPrice->getPrice() : 0.0;
 
             // Get sticker prices if item has stickers
@@ -102,32 +129,15 @@ class InventoryController extends AbstractController
                         continue;
                     }
 
-                    // Construct market hash name using the correct type (Sticker or Patch)
-                    $type = $sticker['type'] ?? 'Sticker'; // Default to Sticker for backward compatibility
+                    $type = $sticker['type'] ?? 'Sticker';
                     $stickerHashName = $type . ' | ' . $sticker['name'];
 
-                    // Try to find the sticker item and its price
-                    $stickerItem = $this->entityManager->createQuery('
-                        SELECT i
-                        FROM App\Entity\Item i
-                        WHERE i.hashName = :hashName
-                    ')
-                    ->setParameter('hashName', $stickerHashName)
-                    ->setMaxResults(1)
-                    ->getOneOrNullResult();
-
+                    // OPTIMIZATION: Look up sticker from preloaded map
+                    $stickerItem = $stickerItemsMap[$stickerHashName] ?? null;
                     $stickerPriceValue = 0.0;
-                    if ($stickerItem !== null) {
-                        $stickerPrice = $this->entityManager->createQuery('
-                            SELECT ip
-                            FROM App\Entity\ItemPrice ip
-                            WHERE ip.item = :item
-                            ORDER BY ip.priceDate DESC
-                        ')
-                        ->setParameter('item', $stickerItem)
-                        ->setMaxResults(1)
-                        ->getOneOrNullResult();
 
+                    if ($stickerItem !== null) {
+                        $stickerPrice = $stickerItem->getCurrentPrice();
                         if ($stickerPrice !== null) {
                             $stickerPriceValue = (float) $stickerPrice->getPrice();
                         }
@@ -148,30 +158,13 @@ class InventoryController extends AbstractController
             $keychain = $itemUser->getKeychain();
 
             if ($keychain !== null && isset($keychain['name'])) {
-                // Construct market hash name for keychain: "Charm | {name}"
                 $keychainHashName = 'Charm | ' . $keychain['name'];
 
-                // Try to find the keychain item and its price
-                $keychainItem = $this->entityManager->createQuery('
-                    SELECT i
-                    FROM App\Entity\Item i
-                    WHERE i.hashName = :hashName
-                ')
-                ->setParameter('hashName', $keychainHashName)
-                ->setMaxResults(1)
-                ->getOneOrNullResult();
+                // OPTIMIZATION: Look up keychain from preloaded map
+                $keychainItem = $keychainItemsMap[$keychainHashName] ?? null;
 
                 if ($keychainItem !== null) {
-                    $keychainPrice = $this->entityManager->createQuery('
-                        SELECT ip
-                        FROM App\Entity\ItemPrice ip
-                        WHERE ip.item = :item
-                        ORDER BY ip.priceDate DESC
-                    ')
-                    ->setParameter('item', $keychainItem)
-                    ->setMaxResults(1)
-                    ->getOneOrNullResult();
-
+                    $keychainPrice = $keychainItem->getCurrentPrice();
                     if ($keychainPrice !== null) {
                         $keychainPriceValue = (float) $keychainPrice->getPrice();
                     }

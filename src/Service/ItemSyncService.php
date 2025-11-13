@@ -507,6 +507,7 @@ class ItemSyncService
         // Only persist if we have at least a price value
         if ($itemPrice->getPrice() !== null) {
             $this->entityManager->persist($itemPrice);
+            $item->setCurrentPrice($itemPrice); // Set current price reference for query optimization
             return true;
         }
 

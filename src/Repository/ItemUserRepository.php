@@ -18,6 +18,7 @@ class ItemUserRepository extends ServiceEntityRepository
 
     /**
      * Find user's inventory with optional filters
+     * Uses eager loading to fetch item, currentPrice, and storageBox in a single query
      *
      * @param array $filters Supported: item_type, category, rarity, wear_category, is_stattrak, storage_box
      * @return ItemUser[]
@@ -25,7 +26,10 @@ class ItemUserRepository extends ServiceEntityRepository
     public function findUserInventory(int $userId, array $filters = []): array
     {
         $qb = $this->createQueryBuilder('iu')
+            ->select('iu, i, cp, sb')
             ->leftJoin('iu.item', 'i')
+            ->leftJoin('i.currentPrice', 'cp')
+            ->leftJoin('iu.storageBox', 'sb')
             ->where('iu.user = :userId')
             ->setParameter('userId', $userId);
 
