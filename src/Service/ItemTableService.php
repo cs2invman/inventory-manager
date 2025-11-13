@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\User;
 use App\Repository\ItemRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -16,11 +17,12 @@ class ItemTableService
     /**
      * Get items table data with filters, sorting, and pagination
      *
-     * @param array $filters Filter criteria (search, category, subcategory, type, rarity, stattrakAvailable, souvenirAvailable)
-     * @param string $sortBy Column to sort by (or 'price', 'volume', 'trend7d', 'trend30d' for price-based sorting)
+     * @param array $filters Filter criteria (search, category, subcategory, type, rarity, stattrakAvailable, souvenirAvailable, ownedOnly)
+     * @param string $sortBy Column to sort by (or 'price', 'volume', 'sold7d', 'sold30d', 'volumeBuyOrders', 'volumeSellOrders', 'trend7d', 'trend30d' for price-based sorting)
      * @param string $sortDirection Sort direction (ASC or DESC)
      * @param int $page Current page number (1-indexed)
      * @param int $perPage Items per page
+     * @param User|null $currentUser Current user for owned inventory filter
      * @return array Structured array with items and pagination metadata
      */
     public function getItemsTableData(
@@ -28,8 +30,14 @@ class ItemTableService
         string $sortBy = 'name',
         string $sortDirection = 'ASC',
         int $page = 1,
-        int $perPage = 25
+        int $perPage = 25,
+        ?User $currentUser = null
     ): array {
+        // Pass user to filters array for owned inventory filter
+        if ($currentUser !== null && isset($filters['ownedOnly']) && $filters['ownedOnly']) {
+            $filters['currentUser'] = $currentUser;
+        }
+
         // Ensure page is at least 1
         if ($page < 1) {
             $page = 1;
@@ -42,30 +50,39 @@ class ItemTableService
         $offset = ($page - 1) * $perPage;
 
         // Get total count for pagination
-        // Use price-aware count if price filters are present
+        // Use price-aware count if price filters or owned filter are present
         $hasPriceFilter = isset($filters['minPrice']) || isset($filters['maxPrice']);
-        $total = $hasPriceFilter
+        $hasOwnedFilter = isset($filters['ownedOnly']) && $filters['ownedOnly'] === true;
+        $total = ($hasPriceFilter || $hasOwnedFilter)
             ? $this->itemRepository->countWithPriceFilters($filters)
             : $this->itemRepository->countWithFilters($filters);
 
-        // Handle price/volume sorting using SQL, trend sorting in PHP
-        // Also use price-based query when price filters are present
-        $hasPriceFilter = isset($filters['minPrice']) || isset($filters['maxPrice']);
+        // Handle price/volume/trend sorting using SQL
+        // Also use price-based query when price filters or owned filter are present
+        $priceSortFields = ['price', 'volume', 'sold7d', 'sold30d', 'volumeBuyOrders', 'volumeSellOrders'];
 
-        if (in_array($sortBy, ['price', 'volume']) || $hasPriceFilter) {
-            // Use efficient SQL-based sorting for price and volume
+        if (in_array($sortBy, $priceSortFields) || $hasPriceFilter || $hasOwnedFilter) {
+            // Use efficient SQL-based sorting for price-related fields
             // Also required when filtering by price range
             $itemIds = $this->itemRepository->findItemIdsSortedByPrice(
                 $filters,
-                in_array($sortBy, ['price', 'volume']) ? $sortBy : 'price',
+                in_array($sortBy, $priceSortFields) ? $sortBy : 'price',
                 $sortDirection,
                 $perPage,
                 $offset
             );
             $items = $this->itemRepository->findWithLatestPriceAndTrend($itemIds);
         } elseif (in_array($sortBy, ['trend7d', 'trend30d'])) {
-            // For trend sorting, we need to sort in PHP (trends are calculated, not stored)
-            $items = $this->getItemsWithTrendSorting($filters, $sortBy, $sortDirection, $perPage, $offset);
+            // Use SQL-based trend sorting for efficiency across all items
+            $days = $sortBy === 'trend7d' ? 7 : 30;
+            $itemIds = $this->itemRepository->findItemIdsSortedByTrend(
+                $filters,
+                $days,
+                $sortDirection,
+                $perPage,
+                $offset
+            );
+            $items = $this->itemRepository->findWithLatestPriceAndTrend($itemIds);
         } else {
             // For item fields, use repository's native sorting
             $items = $this->itemRepository->findAllWithFiltersAndPagination(
@@ -171,7 +188,10 @@ class ItemTableService
     {
         return match ($sortBy) {
             'price' => $itemData['latestPrice'],
-            'volume' => $itemData['volume'],
+            'volume', 'sold30d' => $itemData['sold30d'],  // Map both to sold30d
+            'sold7d' => $itemData['sold7d'],
+            'volumeBuyOrders' => $itemData['volumeBuyOrders'],
+            'volumeSellOrders' => $itemData['volumeSellOrders'],
             'trend7d' => $itemData['trend7d'],
             'trend30d' => $itemData['trend30d'],
             default => null,

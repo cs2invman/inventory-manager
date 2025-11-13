@@ -152,6 +152,16 @@
                         >
                         <span class="ml-2 text-sm text-gray-300">Souvenir Available</span>
                     </label>
+
+                    <label class="flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            x-model="filters.ownedOnly"
+                            @change="onFilterChange()"
+                            class="w-4 h-4 text-cs2-orange bg-gray-800 border-gray-600 rounded focus:ring-cs2-orange"
+                        >
+                        <span class="ml-2 text-sm text-gray-300">Owned Inventory</span>
+                    </label>
                 </div>
 
                 <!-- Clear Filters Button -->
@@ -183,10 +193,7 @@
                     <thead class="bg-gray-900 border-b border-gray-700">
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Image</th>
-                            <th
-                                @click="sortByColumn('name')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('name')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>Name</span>
                                     <svg x-show="sortBy === 'name'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -194,10 +201,7 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('type')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('type')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>Type</span>
                                     <svg x-show="sortBy === 'type'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -205,10 +209,7 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('category')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('category')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>Category</span>
                                     <svg x-show="sortBy === 'category'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -216,10 +217,7 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('subcategory')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('subcategory')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>Subcategory</span>
                                     <svg x-show="sortBy === 'subcategory'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -227,10 +225,7 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('rarity')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('rarity')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>Rarity</span>
                                     <svg x-show="sortBy === 'rarity'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -238,10 +233,7 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('price')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('price')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>Price</span>
                                     <svg x-show="sortBy === 'price'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -249,21 +241,23 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('volume')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('volumeBuyOrders')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
-                                    <span>Volume</span>
-                                    <svg x-show="sortBy === 'volume'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                    <span>Buy Orders</span>
+                                    <svg x-show="sortBy === 'volumeBuyOrders'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('updatedAt')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('volumeSellOrders')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
+                                <div class="flex items-center space-x-1">
+                                    <span>Sell Orders</span>
+                                    <svg x-show="sortBy === 'volumeSellOrders'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th @click="sortByColumn('updatedAt')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>Updated</span>
                                     <svg x-show="sortBy === 'updatedAt'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -271,10 +265,15 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('trend7d')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('sold7d')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
+                                <div class="flex items-center space-x-1">
+                                    <span>Sold 7D</span>
+                                    <svg x-show="sortBy === 'sold7d'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th @click="sortByColumn('trend7d')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>7d Trend</span>
                                     <svg x-show="sortBy === 'trend7d'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -282,10 +281,15 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th
-                                @click="sortByColumn('trend30d')"
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange"
-                            >
+                            <th @click="sortByColumn('sold30d')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
+                                <div class="flex items-center space-x-1">
+                                    <span>Sold 30D</span>
+                                    <svg x-show="sortBy === 'sold30d'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path>
+                                    </svg>
+                                </div>
+                            </th>
+                            <th @click="sortByColumn('trend30d')" class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cs2-orange">
                                 <div class="flex items-center space-x-1">
                                     <span>30d Trend</span>
                                     <svg x-show="sortBy === 'trend30d'" class="h-4 w-4" :class="sortDirection === 'asc' ? 'transform rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
@@ -299,7 +303,7 @@
                     <tbody class="divide-y divide-gray-700">
                         <!-- Empty State -->
                         <tr x-show="!loading && items.length === 0">
-                            <td colspan="12" class="px-4 py-12 text-center text-gray-400">
+                            <td colspan="15" class="px-4 py-12 text-center text-gray-400">
                                 <svg class="h-12 w-12 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
@@ -346,14 +350,23 @@
                                 <!-- Price -->
                                 <td class="px-4 py-3 text-sm font-medium text-white" x-text="formatPrice(item.price, item.currencySymbol)"></td>
 
-                                <!-- Volume -->
-                                <td class="px-4 py-3 text-sm text-gray-300" x-text="formatVolume(item.volume)"></td>
+                                <!-- Buy Orders - NEW -->
+                                <td class="px-4 py-3 text-sm text-gray-300" x-text="formatVolume(item.volumeBuyOrders)"></td>
 
-                                <!-- Last Updated -->
+                                <!-- Sell Orders - NEW -->
+                                <td class="px-4 py-3 text-sm text-gray-300" x-text="formatVolume(item.volumeSellOrders)"></td>
+
+                                <!-- Updated - MOVED -->
                                 <td class="px-4 py-3 text-sm text-gray-400" x-text="formatRelativeTime(item.updatedAt)"></td>
+
+                                <!-- Sold 7D - NEW -->
+                                <td class="px-4 py-3 text-sm text-gray-300" x-text="formatVolume(item.sold7d)"></td>
 
                                 <!-- 7 Days Trend -->
                                 <td class="px-4 py-3 text-sm font-medium" :class="formatTrend(item.trend7d).color" x-text="formatTrend(item.trend7d).text"></td>
+
+                                <!-- Sold 30D - RENAMED from Volume -->
+                                <td class="px-4 py-3 text-sm text-gray-300" x-text="formatVolume(item.sold30d)"></td>
 
                                 <!-- 30 Days Trend -->
                                 <td class="px-4 py-3 text-sm font-medium" :class="formatTrend(item.trend30d).color" x-text="formatTrend(item.trend30d).text"></td>
@@ -452,6 +465,7 @@ function itemsTable() {
             rarity: '',
             stattrak: false,
             souvenir: false,
+            ownedOnly: false,
             minPrice: '',
             maxPrice: ''
         },
@@ -484,6 +498,7 @@ function itemsTable() {
                 rarity: this.filters.rarity,
                 stattrak: this.filters.stattrak ? '1' : '',
                 souvenir: this.filters.souvenir ? '1' : '',
+                ownedOnly: this.filters.ownedOnly ? '1' : '',
                 minPrice: this.filters.minPrice,
                 maxPrice: this.filters.maxPrice,
                 sortBy: this.sortBy,
@@ -541,6 +556,7 @@ function itemsTable() {
                 rarity: '',
                 stattrak: false,
                 souvenir: false,
+                ownedOnly: false,
                 minPrice: '',
                 maxPrice: ''
             };

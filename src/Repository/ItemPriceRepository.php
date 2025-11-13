@@ -169,7 +169,8 @@ class ItemPriceRepository extends ServiceEntityRepository
      */
     public function getPriceTrend(int $itemId, int $days): ?float
     {
-        $from = new \DateTimeImmutable("-{$days} days");
+        // Set to midnight to include all prices from that day
+        $from = (new \DateTimeImmutable("-{$days} days"))->setTime(0, 0, 0);
 
         $oldestPrice = $this->createQueryBuilder('ip')
             ->where('ip.item = :itemId')

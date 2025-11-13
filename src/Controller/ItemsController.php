@@ -65,6 +65,7 @@ class ItemsController extends AbstractController
         $rarity = $request->query->get('rarity', '');
         $stattrak = $request->query->get('stattrak', '');
         $souvenir = $request->query->get('souvenir', '');
+        $ownedOnly = $request->query->get('ownedOnly', '');
         $minPrice = $request->query->get('minPrice', '');
         $maxPrice = $request->query->get('maxPrice', '');
         $sortBy = $request->query->get('sortBy', 'name');
@@ -73,7 +74,7 @@ class ItemsController extends AbstractController
         $perPage = $request->query->getInt('perPage', 25);
 
         // Validate inputs
-        $validSortColumns = ['name', 'category', 'subcategory', 'type', 'rarity', 'price', 'volume', 'updatedAt', 'trend7d', 'trend30d'];
+        $validSortColumns = ['name', 'category', 'subcategory', 'type', 'rarity', 'price', 'volume', 'sold30d', 'sold7d', 'volumeBuyOrders', 'volumeSellOrders', 'updatedAt', 'trend7d', 'trend30d'];
         if (!in_array($sortBy, $validSortColumns)) {
             $this->logger->warning('Invalid sortBy column provided', ['sortBy' => $sortBy]);
             $sortBy = 'name';
@@ -116,6 +117,9 @@ class ItemsController extends AbstractController
         if ($souvenir === '1') {
             $filters['souvenirAvailable'] = true;
         }
+        if ($ownedOnly === '1') {
+            $filters['ownedOnly'] = true;
+        }
         if ($minPrice !== '' && is_numeric($minPrice) && (float)$minPrice >= 0) {
             $filters['minPrice'] = (float)$minPrice;
         }
@@ -145,7 +149,8 @@ class ItemsController extends AbstractController
                 $sortBy,
                 strtoupper($sortDirection),
                 $page,
-                $perPage
+                $perPage,
+                $this->getUser()
             );
         } catch (\Exception $e) {
             $this->logger->error('Items table data fetch failed', [
@@ -222,6 +227,10 @@ class ItemsController extends AbstractController
             'souvenirAvailable' => $item->isSouvenirAvailable(),
             'price' => $price !== null ? round($price, 2) : null,
             'volume' => $itemData['volume'],
+            'sold30d' => $itemData['sold30d'],
+            'sold7d' => $itemData['sold7d'],
+            'volumeBuyOrders' => $itemData['volumeBuyOrders'],
+            'volumeSellOrders' => $itemData['volumeSellOrders'],
             'updatedAt' => $itemData['priceDate']?->format('c'),
             'trend7d' => $itemData['trend7d'] !== null ? round($itemData['trend7d'], 1) : null,
             'trend30d' => $itemData['trend30d'] !== null ? round($itemData['trend30d'], 1) : null,

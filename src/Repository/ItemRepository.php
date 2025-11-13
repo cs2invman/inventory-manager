@@ -377,6 +377,12 @@ class ItemRepository extends ServiceEntityRepository
             $params['souvenirAvailable'] = (bool) $filters['souvenirAvailable'] ? 1 : 0;
         }
 
+        // Owned inventory filter
+        if (isset($filters['ownedOnly']) && $filters['ownedOnly'] === true && isset($filters['currentUser'])) {
+            $whereClauses[] = 'EXISTS (SELECT 1 FROM item_user iu WHERE iu.item_id = i.id AND iu.user_id = :currentUserId)';
+            $params['currentUserId'] = $filters['currentUser']->getId();
+        }
+
         // Price range filters
         if (isset($filters['minPrice']) && is_numeric($filters['minPrice'])) {
             $whereClauses[] = 'latest_price.price >= :minPrice';
@@ -468,6 +474,15 @@ class ItemRepository extends ServiceEntityRepository
             $qb->andWhere('i.souvenirAvailable = :souvenirAvailable')
                ->setParameter('souvenirAvailable', (bool) $filters['souvenirAvailable']);
         }
+
+        // Owned inventory filter - join to item_user table
+        if (isset($filters['ownedOnly']) && $filters['ownedOnly'] === true && isset($filters['currentUser'])) {
+            $qb->innerJoin('App\Entity\ItemUser', 'iu', 'WITH', 'iu.item = i')
+               ->andWhere('iu.user = :currentUser')
+               ->setParameter('currentUser', $filters['currentUser']);
+            // Use DISTINCT to avoid duplicates if user has multiple instances
+            $qb->distinct();
+        }
     }
 
     /**
@@ -502,6 +517,10 @@ class ItemRepository extends ServiceEntityRepository
                 ip.item_id,
                 ip.price,
                 ip.sold_total,
+                ip.sold7d,
+                ip.sold30d,
+                ip.volume_buy_orders,
+                ip.volume_sell_orders,
                 ip.price_date
             FROM item_price ip
             INNER JOIN (
@@ -542,6 +561,10 @@ class ItemRepository extends ServiceEntityRepository
                 'item' => $item,
                 'latestPrice' => $priceData ? (float) $priceData['price'] : null,
                 'volume' => $priceData ? (int) $priceData['sold_total'] : null,
+                'sold7d' => $priceData ? (int) $priceData['sold7d'] : null,
+                'sold30d' => $priceData ? (int) $priceData['sold30d'] : null,
+                'volumeBuyOrders' => $priceData ? (int) $priceData['volume_buy_orders'] : null,
+                'volumeSellOrders' => $priceData ? (int) $priceData['volume_sell_orders'] : null,
                 'priceDate' => $priceData ? new \DateTimeImmutable($priceData['price_date']) : null,
                 'trend7d' => $priceRepo->getPriceTrend($itemId, 7),
                 'trend30d' => $priceRepo->getPriceTrend($itemId, 30),
@@ -613,6 +636,12 @@ class ItemRepository extends ServiceEntityRepository
             $params['souvenirAvailable'] = (bool) $filters['souvenirAvailable'] ? 1 : 0;
         }
 
+        // Owned inventory filter
+        if (isset($filters['ownedOnly']) && $filters['ownedOnly'] === true && isset($filters['currentUser'])) {
+            $whereClauses[] = 'EXISTS (SELECT 1 FROM item_user iu WHERE iu.item_id = i.id AND iu.user_id = :currentUserId)';
+            $params['currentUserId'] = $filters['currentUser']->getId();
+        }
+
         // Price range filters
         if (isset($filters['minPrice']) && is_numeric($filters['minPrice'])) {
             $whereClauses[] = 'latest_price.price >= :minPrice';
@@ -626,12 +655,17 @@ class ItemRepository extends ServiceEntityRepository
 
         $whereClause = implode(' AND ', $whereClauses);
 
-        // Validate sort field
-        $validSortFields = ['price', 'volume'];
-        if (!in_array($sortBy, $validSortFields)) {
-            $sortBy = 'price';
-        }
+        // Validate sort field and map to SQL column names
+        $validSortFields = [
+            'price' => 'price',
+            'volume' => 'volume',
+            'sold7d' => 'sold7d',
+            'sold30d' => 'sold30d',
+            'volumeBuyOrders' => 'volume_buy_orders',
+            'volumeSellOrders' => 'volume_sell_orders',
+        ];
 
+        $sortColumn = $validSortFields[$sortBy] ?? 'price';
         $sortDirection = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
 
         // Build SQL - join with latest prices and sort
@@ -640,7 +674,14 @@ class ItemRepository extends ServiceEntityRepository
             SELECT i.id
             FROM item i
             LEFT JOIN (
-                SELECT ip.item_id, ip.price, ip.sold_total as volume
+                SELECT
+                    ip.item_id,
+                    ip.price,
+                    ip.sold_total as volume,
+                    ip.sold7d,
+                    ip.sold30d,
+                    ip.volume_buy_orders,
+                    ip.volume_sell_orders
                 FROM item_price ip
                 INNER JOIN (
                     SELECT item_id, MAX(price_date) as max_date
@@ -649,13 +690,128 @@ class ItemRepository extends ServiceEntityRepository
                 ) latest ON ip.item_id = latest.item_id AND ip.price_date = latest.max_date
             ) latest_price ON i.id = latest_price.item_id
             WHERE {$whereClause}
-            ORDER BY latest_price.{$sortBy} {$sortDirection}, i.name ASC
+            ORDER BY latest_price.{$sortColumn} {$sortDirection}, i.name ASC
             LIMIT {$limit} OFFSET {$offset}
         ";
 
         $stmt = $conn->executeQuery($sql, $params);
         $results = $stmt->fetchAllAssociative();
 
+        return array_map(fn($row) => (int) $row['id'], $results);
+    }
+
+    /**
+     * Find items sorted by trend with filters and pagination
+     * Calculates trend in SQL for efficiency across all items
+     */
+    public function findItemIdsSortedByTrend(
+        array $filters = [],
+        int $days = 7,
+        string $sortDirection = 'ASC',
+        int $limit = 25,
+        int $offset = 0
+    ): array {
+        $conn = $this->getEntityManager()->getConnection();
+
+        // Build WHERE clause (same filters as price sorting)
+        $whereClauses = ['i.active = :active'];
+        $params = ['active' => $filters['active'] ?? true ? 1 : 0];
+
+        // Text search
+        if (!empty($filters['search']) && strlen($filters['search']) >= 2) {
+            $whereClauses[] = '(LOWER(i.name) LIKE :search OR LOWER(i.market_name) LIKE :search OR LOWER(i.hash_name) LIKE :search)';
+            $params['search'] = '%' . strtolower($filters['search']) . '%';
+        }
+
+        // Exact match filters
+        if (!empty($filters['category'])) {
+            $whereClauses[] = 'i.category = :category';
+            $params['category'] = $filters['category'];
+        }
+        if (!empty($filters['subcategory'])) {
+            $whereClauses[] = 'i.subcategory = :subcategory';
+            $params['subcategory'] = $filters['subcategory'];
+        }
+        if (!empty($filters['type'])) {
+            $whereClauses[] = 'i.type = :type';
+            $params['type'] = $filters['type'];
+        }
+        if (!empty($filters['rarity'])) {
+            $whereClauses[] = 'i.rarity = :rarity';
+            $params['rarity'] = $filters['rarity'];
+        }
+
+        // Boolean filters
+        if (isset($filters['stattrakAvailable']) && $filters['stattrakAvailable'] !== '') {
+            $whereClauses[] = 'i.stattrak_available = :stattrakAvailable';
+            $params['stattrakAvailable'] = (bool) $filters['stattrakAvailable'] ? 1 : 0;
+        }
+        if (isset($filters['souvenirAvailable']) && $filters['souvenirAvailable'] !== '') {
+            $whereClauses[] = 'i.souvenir_available = :souvenirAvailable';
+            $params['souvenirAvailable'] = (bool) $filters['souvenirAvailable'] ? 1 : 0;
+        }
+
+        // Owned inventory filter
+        if (isset($filters['ownedOnly']) && $filters['ownedOnly'] === true && isset($filters['currentUser'])) {
+            $whereClauses[] = 'EXISTS (SELECT 1 FROM item_user iu WHERE iu.item_id = i.id AND iu.user_id = :currentUserId)';
+            $params['currentUserId'] = $filters['currentUser']->getId();
+        }
+
+        // Price range filters
+        if (isset($filters['minPrice']) && is_numeric($filters['minPrice'])) {
+            $whereClauses[] = 'latest_price.price >= :minPrice';
+            $params['minPrice'] = (float) $filters['minPrice'];
+        }
+        if (isset($filters['maxPrice']) && is_numeric($filters['maxPrice'])) {
+            $whereClauses[] = 'latest_price.price <= :maxPrice';
+            $params['maxPrice'] = (float) $filters['maxPrice'];
+        }
+
+        $whereClause = implode(' AND ', $whereClauses);
+        $sortDirection = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
+
+        // Calculate trend in SQL - much more efficient than PHP
+        $sql = "
+            SELECT i.id
+            FROM item i
+            LEFT JOIN (
+                SELECT
+                    ip.item_id,
+                    ip.price
+                FROM item_price ip
+                INNER JOIN (
+                    SELECT item_id, MAX(price_date) as max_date
+                    FROM item_price
+                    GROUP BY item_id
+                ) latest ON ip.item_id = latest.item_id AND ip.price_date = latest.max_date
+            ) latest_price ON i.id = latest_price.item_id
+            LEFT JOIN (
+                SELECT
+                    ip.item_id,
+                    ip.price as old_price
+                FROM item_price ip
+                INNER JOIN (
+                    SELECT item_id, MIN(price_date) as min_date
+                    FROM item_price
+                    WHERE price_date >= DATE_SUB(CURDATE(), INTERVAL {$days} DAY)
+                    GROUP BY item_id
+                ) oldest ON ip.item_id = oldest.item_id AND ip.price_date = oldest.min_date
+            ) old_price ON i.id = old_price.item_id
+            WHERE {$whereClause}
+            ORDER BY
+                CASE
+                    WHEN old_price.old_price IS NULL OR old_price.old_price = 0 THEN NULL
+                    WHEN old_price.old_price < 1.00 THEN NULL
+                    WHEN ((latest_price.price - old_price.old_price) / old_price.old_price * 100) > 500 THEN NULL
+                    WHEN ((latest_price.price - old_price.old_price) / old_price.old_price * 100) < -99 THEN NULL
+                    ELSE ((latest_price.price - old_price.old_price) / old_price.old_price * 100)
+                END {$sortDirection},
+                i.name ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ";
+
+        $result = $conn->executeQuery($sql, $params);
+        $results = $result->fetchAllAssociative();
         return array_map(fn($row) => (int) $row['id'], $results);
     }
 
