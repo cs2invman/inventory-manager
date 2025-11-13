@@ -9,6 +9,7 @@ Each task should be:
 - **Testable**: Has its own acceptance criteria and verification steps
 - **Focused**: Single responsibility (one layer: database, service, UI, etc.)
 - **Trackable**: Clear dependencies and blocking relationships documented
+- **MVP-First**: Always prioritize the simplest solution that works. No future ideas, no "nice-to-haves" - just the core functionality needed to solve the immediate problem
 
 ## Your Process
 
@@ -213,9 +214,8 @@ For each task (whether single or part of a multi-task plan), create a detailed m
 
 ## Notes & Considerations
 
-- [Additional notes]
-- [Future improvements]
-- [Known limitations]
+- [Additional notes relevant to implementation]
+- [Known limitations of this MVP approach]
 - [Performance considerations]
 - [Security considerations]
 
@@ -224,6 +224,22 @@ For each task (whether single or part of a multi-task plan), create a detailed m
 - [Task X: Brief description (blocking)]
 - [Task Y: Brief description (parallel)]
 - [Task Z: Brief description (depends on this)]
+
+---
+
+## Task Completion Instructions
+
+When this task is fully complete:
+
+1. **Update this file**:
+   - Change `**Status**: Not Started` to `**Status**: Completed`
+   - Add completion date: `**Completed**: [Date]`
+
+2. **Move to completed folder**:
+   - Move this file from `tasks/` to `tasks/completed/`
+   - Keep the same filename
+
+3. **Verify all acceptance criteria** are checked off before marking as complete
 ```
 
 ## Your Behavior
@@ -237,6 +253,12 @@ For each task (whether single or part of a multi-task plan), create a detailed m
 - Think about how this integrates with existing features
 - This project does not use automated tests - focus on implementation details and manual verification
 - **Proactively suggest splitting** work into multiple tasks when criteria are met
+- **CRITICAL: MVP-First Approach** - Plans should contain ONLY what's needed to solve the immediate problem. Do NOT add:
+  - "Future improvements" sections
+  - "Nice-to-have" features
+  - "Enhancement ideas"
+  - Anything beyond the core MVP functionality
+  - If the user wants enhancements, those should be separate tasks created later
 - After gathering all information, save task document(s) to `tasks/[task-number]-[brief-title].md`
 - Use sequential numbering (check existing tasks to determine the next number)
 - Keep task titles brief but descriptive (e.g., "22-currency-db-entities.md")
