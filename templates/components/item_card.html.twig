@@ -30,10 +30,24 @@
 {% set latestPrice = latestPrice|default(null) %}
 
 <div class="card hover:border-cs2-orange transition-colors duration-200 group relative"
+    data-item-name="{{ item.name|lower }}"
+    data-item-type="{{ item.type|lower }}"
+    data-category="{{ item.category|default('')|lower }}"
+    data-subcategory="{{ item.subcategory|default('')|lower }}"
+    data-collection="{{ item.collection|default('')|lower }}"
+    data-rarity="{{ item.rarity|default('')|lower }}"
+    data-float="{{ itemUser.floatValue|default('') }}"
+    data-pattern="{{ itemUser.paintSeed|default(itemUser.patternIndex|default('')) }}"
+    data-wear="{{ itemUser.wearCategory|default('')|lower }}"
+    data-price="{{ aggregatePrice|default(priceValue)|default(0) }}"
+    data-storage-box="{{ itemUser.storageBox ? itemUser.storageBox.name|lower : 'none' }}"
+    data-is-stattrak="{{ itemUser.isStattrak ? 'true' : 'false' }}"
+    data-is-souvenir="{{ itemUser.isSouvenir ? 'true' : 'false' }}"
+    data-is-normal="{{ (not itemUser.isStattrak and not itemUser.isSouvenir) ? 'true' : 'false' }}"
     {% if mode == 'with-checkbox' %}
-        data-rarity="{{ rarity|default(item.rarity) }}"
-        data-type="{{ type|default(item.type) }}"
-        data-price="{{ priceValue|default(0) }}"
+        data-original-rarity="{{ rarity|default(item.rarity) }}"
+        data-original-type="{{ type|default(item.type) }}"
+        data-original-price="{{ priceValue|default(0) }}"
     {% endif %}
 >
     {# Checkbox for import preview #}

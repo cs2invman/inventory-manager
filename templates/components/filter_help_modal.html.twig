@@ -1,0 +1,134 @@
+{#
+    Reusable Filter Help Modal Component
+
+    Shows comprehensive syntax guide for the inventory filter system.
+    Can be included in any template that uses the inventory filter.
+
+    Usage:
+    {% include 'components/filter_help_modal.html.twig' %}
+#}
+
+<!-- Filter Help Modal -->
+<div id="filter-help-modal" class="fixed inset-0 z-50 hidden">
+    <!-- Backdrop -->
+    <div id="filter-help-backdrop" class="absolute inset-0 bg-black/80"></div>
+
+    <!-- Modal Content -->
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
+                <h3 class="text-2xl font-bold text-white">Filter Syntax Guide</h3>
+                <button id="filter-help-close" class="text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="p-6 space-y-6">
+                <!-- Introduction -->
+                <p class="text-gray-300">
+                    Filter your inventory using simple search syntax. Combine multiple filters to narrow down results. All filters are case-insensitive.
+                </p>
+
+                <!-- Filter Types -->
+                <div class="space-y-4">
+                    <!-- Item Name -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Item Name Search</h4>
+                        <p class="text-sm text-gray-400 mb-2">Search for items by name, category, or subcategory (partial match, case-insensitive)</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">dlore, asiimov, ak ch, M4 Fade, rifle, pistol</code>
+                    </div>
+
+                    <!-- Float Range -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Float Range</h4>
+                        <p class="text-sm text-gray-400 mb-2">Filter by float value (only for items with float)</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">&lt;0.04, &gt;0.3, 0.15-0.19</code>
+                    </div>
+
+                    <!-- Price Range -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Price Range</h4>
+                        <p class="text-sm text-gray-400 mb-2">Filter by price (based on aggregate price for grouped items)</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">&lt;400, &gt;34.66, &gt;100</code>
+                    </div>
+
+                    <!-- Pattern Seed -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Pattern Seed</h4>
+                        <p class="text-sm text-gray-400 mb-2">Filter by paint seed or pattern index</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">#661, #700</code>
+                    </div>
+
+                    <!-- Wear Category -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Wear Category</h4>
+                        <p class="text-sm text-gray-400 mb-2">Filter by wear (case-insensitive)</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">w:fn, W:mw, w:ft, w:ww, w:bs</code>
+                        <p class="text-xs text-gray-500 mt-2">FN = Factory New, MW = Minimal Wear, FT = Field-Tested, WW = Well-Worn, BS = Battle-Scarred</p>
+                    </div>
+
+                    <!-- Item Category -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Item Category</h4>
+                        <p class="text-sm text-gray-400 mb-2">Filter by StatTrak, Souvenir, or Normal items (case-insensitive)</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">cat:st, CAT:sv, Cat:norm</code>
+                        <p class="text-xs text-gray-500 mt-2">ST = StatTrak, SV = Souvenir, NORM = Normal (non-ST, non-SV)</p>
+                    </div>
+
+                    <!-- Collection -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Collection</h4>
+                        <p class="text-sm text-gray-400 mb-2">Filter by collection name (partial match, case-insensitive)</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">COL:chroma 2, col:dust 2</code>
+                    </div>
+
+                    <!-- Rarity -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Rarity</h4>
+                        <p class="text-sm text-gray-400 mb-2">Filter by rarity (case-insensitive)</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">R:covert, r:milspec, r:contraband</code>
+                    </div>
+
+                    <!-- Storage Box -->
+                    <div class="bg-gray-900/50 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-cs2-orange mb-2">Storage Box</h4>
+                        <p class="text-sm text-gray-400 mb-2">Filter by storage box location (case-insensitive)</p>
+                        <code class="block bg-gray-950 text-green-400 p-2 rounded text-sm">Box:A1, b:B1</code>
+                    </div>
+                </div>
+
+                <!-- Example Queries -->
+                <div class="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg">
+                    <h4 class="text-lg font-semibold text-blue-400 mb-3">Example Queries</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li class="text-gray-300"><code class="bg-gray-950 text-green-400 px-2 py-1 rounded">M4 Fade</code> - All M4 Fade items</li>
+                        <li class="text-gray-300"><code class="bg-gray-950 text-green-400 px-2 py-1 rounded">Fade w:fn</code> - Only Factory New Fade items</li>
+                        <li class="text-gray-300"><code class="bg-gray-950 text-green-400 px-2 py-1 rounded">Fade &lt;0.02</code> - Fade items with float less than 0.02</li>
+                        <li class="text-gray-300"><code class="bg-gray-950 text-green-400 px-2 py-1 rounded">dlore #661</code> - Dragon Lore with pattern 661</li>
+                        <li class="text-gray-300"><code class="bg-gray-950 text-green-400 px-2 py-1 rounded">cat:st r:covert &gt;100</code> - StatTrak Covert items over $100</li>
+                        <li class="text-gray-300"><code class="bg-gray-950 text-green-400 px-2 py-1 rounded">col:chroma w:fn</code> - Factory New items from Chroma collection</li>
+                        <li class="text-gray-300"><code class="bg-gray-950 text-green-400 px-2 py-1 rounded">rifle w:fn</code> - All Factory New rifles</li>
+                        <li class="text-gray-300"><code class="bg-gray-950 text-green-400 px-2 py-1 rounded">pistol &gt;50</code> - Pistols over $50</li>
+                    </ul>
+                </div>
+
+                <!-- Filter Behavior -->
+                <div class="bg-yellow-900/20 border border-yellow-500/30 p-4 rounded-lg">
+                    <h4 class="text-lg font-semibold text-yellow-400 mb-3">Filter Behavior</h4>
+                    <ul class="space-y-1 text-sm text-gray-300">
+                        <li>• Multiple filters are combined with AND logic (all must match)</li>
+                        <li>• Filters operate on entire grouped items (won't split groups)</li>
+                        <li>• Filters are case-insensitive for text searches</li>
+                        <li>• Filters clear when switching tabs (All/Active/Storage Box views)</li>
+                        <li>• Real-time filtering with 300ms debounce</li>
+                        <li>• Item name search includes item name, category, and subcategory</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
