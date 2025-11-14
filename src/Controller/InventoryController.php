@@ -254,6 +254,10 @@ class InventoryController extends AbstractController
             return $b['aggregatePrice'] <=> $a['aggregatePrice'];
         });
 
+        // Get most recent price update timestamp
+        $itemPriceRepository = $this->entityManager->getRepository(\App\Entity\ItemPrice::class);
+        $mostRecentPriceUpdate = $itemPriceRepository->findMostRecentPriceDate();
+
         return $this->render('inventory/index.html.twig', [
             'itemsWithPrices' => $itemsWithPrices,
             'storageBoxes' => $storageBoxes,
@@ -265,6 +269,7 @@ class InventoryController extends AbstractController
             'currentFilter' => $filter,
             'currentBoxId' => $filterBoxId,
             'userConfig' => $user->getConfig(),
+            'mostRecentPriceUpdate' => $mostRecentPriceUpdate,
         ]);
     }
 

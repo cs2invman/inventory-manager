@@ -304,4 +304,18 @@ class ItemPriceRepository extends ServiceEntityRepository
             ->getQuery()
             ->execute();
     }
+
+    /**
+     * Find the most recent price update date across all items
+     * Optionally filtered by user's inventory items
+     */
+    public function findMostRecentPriceDate(): ?\DateTimeInterface
+    {
+        $result = $this->createQueryBuilder('ip')
+            ->select('MAX(ip.priceDate) as maxDate')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $result ? new \DateTimeImmutable($result) : null;
+    }
 }
