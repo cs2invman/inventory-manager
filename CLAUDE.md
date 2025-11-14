@@ -66,6 +66,8 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 
 **UserConfigService**: Manages Steam ID settings, validates SteamID64 format
 
+**DiscordWebhookService**: Sends notifications to Discord via webhooks. Handles rate limiting, message formatting, and tracks notification history in database. Messages dispatched via async message bus
+
 ### Essential Workflows
 
 **Inventory Import:**
@@ -132,9 +134,15 @@ docker compose exec php php bin/console app:steam:sync-items      # Syncs to DB 
 # Item management
 docker compose exec php php bin/console app:item:backfill-current-price  # Backfill currentPrice for existing items
 
+# Discord notifications
+docker compose exec php php bin/console app:discord:test-webhook webhook_system_events "Test message"
+
 # Database
 docker compose exec php php bin/console make:migration
 docker compose exec php php bin/console doctrine:migrations:migrate
+
+# Process async messages (Discord notifications, etc.)
+docker compose exec php php bin/console messenger:consume async -vv
 ```
 
 ### Cron Setup (Optional)
@@ -170,6 +178,12 @@ The `app:steam:sync-items` command is cron-optimized: processes files in `var/da
 - `SYNC_BATCH_SIZE`: Items per transaction (default: 25)
 - `SYNC_MEMORY_LIMIT`: Memory limit for sync (default: 768M)
 - `SYNC_MEMORY_WARNING_THRESHOLD`: Log warning % (default: 80)
+
+**Discord:**
+- `DISCORD_WEBHOOK_SYSTEM_EVENTS`: Discord webhook URL for system notifications (errors, sync status)
+
+**Messenger:**
+- `MESSENGER_TRANSPORT_DSN`: Doctrine transport for async messaging (default: doctrine://default)
 
 ### Docker Variables (compose.yml, compose.dev.yml for dev)
 
