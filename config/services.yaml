@@ -6,8 +6,6 @@
 parameters:
     app.steam_api_key: '%env(STEAM_API_KEY)%'
     app.steam_market_base_url: '%env(STEAM_MARKET_BASE_URL)%'
-    app.discord_webhook_url: '%env(DISCORD_WEBHOOK_URL)%'
-    app.discord_bot_token: '%env(DISCORD_BOT_TOKEN)%'
     app.proxy_service_url: '%env(PROXY_SERVICE_URL)%'
     app.proxy_auth_token: '%env(PROXY_AUTH_TOKEN)%'
     app.price_change_threshold: '%env(float:PRICE_CHANGE_THRESHOLD)%'

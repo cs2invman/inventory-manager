@@ -179,11 +179,12 @@ The `app:steam:sync-items` command is cron-optimized: processes files in `var/da
 - `SYNC_MEMORY_LIMIT`: Memory limit for sync (default: 768M)
 - `SYNC_MEMORY_WARNING_THRESHOLD`: Log warning % (default: 80)
 
-**Discord:**
-- `DISCORD_WEBHOOK_SYSTEM_EVENTS`: Discord webhook URL for system notifications (errors, sync status)
-
 **Messenger:**
 - `MESSENGER_TRANSPORT_DSN`: Doctrine transport for async messaging (default: doctrine://default)
+
+**Discord:**
+- Discord webhook URLs are stored in `discord_config` table, NOT environment variables
+- See DISCORD.md for complete setup and usage documentation
 
 ### Docker Variables (compose.yml, compose.dev.yml for dev)
 
