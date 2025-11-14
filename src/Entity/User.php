@@ -72,6 +72,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: LedgerEntry::class, mappedBy: 'user', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $ledgerEntries;
 
+    /**
+     * Discord user account link (one-to-one relationship).
+     */
+    #[ORM\OneToOne(targetEntity: DiscordUser::class, mappedBy: 'user', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private ?DiscordUser $discordUser = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -310,6 +316,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             }
         }
 
+        return $this;
+    }
+
+    public function getDiscordUser(): ?DiscordUser
+    {
+        return $this->discordUser;
+    }
+
+    public function setDiscordUser(?DiscordUser $discordUser): static
+    {
+        // Unset the owning side of the relation if necessary
+        if ($discordUser === null && $this->discordUser !== null) {
+            $this->discordUser->setUser(null);
+        }
+
+        // Set the owning side of the relation if necessary
+        if ($discordUser !== null && $discordUser->getUser() !== $this) {
+            $discordUser->setUser($this);
+        }
+
+        $this->discordUser = $discordUser;
         return $this;
     }
 }
