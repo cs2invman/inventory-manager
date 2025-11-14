@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Message\SendDiscordNotificationMessage;
 use App\Service\ItemSyncService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -13,6 +14,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\LockInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsCommand(
     name: 'app:steam:sync-items',
@@ -31,7 +33,8 @@ class SteamSyncItemsCommand extends Command
         private readonly LoggerInterface $syncLogger,
         private readonly LoggerInterface $logger,
         private readonly string $storageBasePath,
-        private readonly LockFactory $lockFactory
+        private readonly LockFactory $lockFactory,
+        private readonly MessageBusInterface $messageBus,
     ) {
         parent::__construct();
     }
@@ -98,6 +101,9 @@ class SteamSyncItemsCommand extends Command
                 'error_class' => get_class($e),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            // Send Discord notification for sync failure
+            $this->sendSyncFailureNotification($e);
 
             $io->error('Failed to sync items: ' . $e->getMessage());
             return Command::FAILURE;
@@ -345,6 +351,47 @@ class SteamSyncItemsCommand extends Command
         }
 
         exit(0);
+    }
+
+    /**
+     * Send Discord notification for sync failure.
+     */
+    private function sendSyncFailureNotification(\Throwable $exception): void
+    {
+        try {
+            $embed = [
+                'title' => 'Steam Item Sync Failed',
+                'description' => 'An error occurred during Steam CS2 item synchronization.',
+                'color' => 0xe74c3c, // Red
+                'fields' => [
+                    [
+                        'name' => 'Error Type',
+                        'value' => get_class($exception),
+                        'inline' => false,
+                    ],
+                    [
+                        'name' => 'Error Message',
+                        'value' => mb_substr($exception->getMessage(), 0, 1024),
+                        'inline' => false,
+                    ],
+                ],
+                'timestamp' => (new \DateTimeImmutable())->format('c'),
+            ];
+
+            $message = new SendDiscordNotificationMessage(
+                notificationType: 'system_event',
+                webhookConfigKey: 'webhook_system_events',
+                content: 'Steam Item Sync Failed',
+                embed: $embed
+            );
+
+            $this->messageBus->dispatch($message);
+        } catch (\Exception $e) {
+            // Log error but don't fail the command
+            $this->logger->error('Failed to send Discord sync failure notification', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
 }
