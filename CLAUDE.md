@@ -87,6 +87,11 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 1. Paste Steam JSON → Compare snapshots to detect movements
 2. Preview → Confirm → Items moved, assetId changes handled by property matching, `reportedCount` synced from JSON
 
+**Admin Panel** (`/admin`):
+- Requires `ROLE_ADMIN` access
+- Discord admin: CRUD for webhooks, config editor, user verification, notification history
+- Form types: DiscordWebhookFormType (validates webhook URLs), DiscordConfigFormType (dynamic config editor)
+
 **Reusable Components:**
 - `templates/components/confirmation_modal.html.twig` - Two-step confirmation pattern (confirm button + text input verification)
 
@@ -199,7 +204,7 @@ The `app:steam:sync-items` command is cron-optimized: processes files in `var/da
 - **Login rate limiting**: 3 attempts per 5 minutes per IP (configure in `config/packages/framework.yaml`)
 - **CSRF protection**: Enabled globally
 - **Password hashing**: Symfony 'auto' algorithm
-- **Access control**: Routes require `ROLE_USER`
+- **Access control**: Routes require `ROLE_USER`, admin panel requires `ROLE_ADMIN`
 
 ## Production Deployment
 
