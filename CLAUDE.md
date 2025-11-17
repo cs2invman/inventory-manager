@@ -32,6 +32,10 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 **User** → **StorageBox** (one-to-many, storage containers)
 **User** → **LedgerEntry** (one-to-many, financial transactions)
 
+**DiscordWebhook** (system-wide, standalone)
+- Tracks: identifier (unique key), displayName, webhookUrl, description, isEnabled
+- Referenced by identifier (e.g., 'system_events')
+
 **Item** (Steam marketplace data) → **ItemPrice** (one-to-many, price history)
 **Item** → **ItemUser** (one-to-many, user instances)
 **Item** → **currentPrice** (reference to latest ItemPrice for query optimization)
@@ -66,7 +70,7 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 
 **UserConfigService**: Manages Steam ID settings, validates SteamID64 format
 
-**DiscordWebhookService**: Sends notifications to Discord via webhooks. Handles rate limiting, message formatting, and tracks notification history in database. Messages dispatched via async message bus
+**DiscordWebhookService**: Sends notifications to Discord via webhooks. Uses DiscordWebhookRepository to look up webhooks by identifier. Handles rate limiting, message formatting, and tracks notification history in database. Messages dispatched via async message bus
 
 ### Essential Workflows
 
@@ -135,7 +139,7 @@ docker compose exec php php bin/console app:steam:sync-items      # Syncs to DB 
 docker compose exec php php bin/console app:item:backfill-current-price  # Backfill currentPrice for existing items
 
 # Discord notifications
-docker compose exec php php bin/console app:discord:test-webhook webhook_system_events "Test message"
+docker compose exec php php bin/console app:discord:test-webhook system_events "Test message"
 
 # Database
 docker compose exec php php bin/console make:migration
@@ -183,7 +187,7 @@ The `app:steam:sync-items` command is cron-optimized: processes files in `var/da
 - `MESSENGER_TRANSPORT_DSN`: Doctrine transport for async messaging (default: doctrine://default)
 
 **Discord:**
-- Discord webhook URLs are stored in `discord_config` table, NOT environment variables
+- Discord webhook URLs are stored in `discord_webhook` table, NOT environment variables
 - See DISCORD.md for complete setup and usage documentation
 
 ### Docker Variables (compose.yml, compose.dev.yml for dev)
