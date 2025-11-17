@@ -57,4 +57,19 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     //            ->getOneOrNullResult()
     //        ;
     //    }
+
+    /**
+     * Find all users with their item counts (main inventory + storage boxes)
+     * Returns array of arrays with 'user' entity and 'itemCount' scalar
+     */
+    public function findAllWithItemCounts(): array
+    {
+        return $this->createQueryBuilder('u')
+            ->select('u', 'COUNT(DISTINCT iu.id) as itemCount')
+            ->leftJoin('u.inventory', 'iu')
+            ->groupBy('u.id')
+            ->orderBy('u.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }
