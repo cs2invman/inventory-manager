@@ -6,6 +6,7 @@ use App\Entity\DiscordConfig;
 use App\Entity\DiscordNotification;
 use App\Repository\DiscordConfigRepository;
 use App\Repository\DiscordNotificationRepository;
+use App\Repository\DiscordWebhookRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
@@ -28,19 +29,23 @@ class DiscordWebhookService
         private readonly EntityManagerInterface $entityManager,
         private readonly LoggerInterface $logger,
         private readonly DiscordConfigRepository $configRepository,
+        private readonly DiscordWebhookRepository $webhookRepository,
         private readonly DiscordNotificationRepository $notificationRepository,
     ) {
     }
 
     /**
      * Send a simple text message to Discord.
+     *
+     * @param string $identifier Webhook identifier (e.g., 'system_events')
+     * @param string $content Message content
      */
-    public function sendMessage(string $configKey, string $content): bool
+    public function sendMessage(string $identifier, string $content): bool
     {
-        $webhookUrl = $this->getWebhookUrl($configKey);
+        $webhookUrl = $this->getWebhookUrl($identifier);
         if (!$webhookUrl) {
             $this->logger->warning('Discord webhook URL not configured', [
-                'config_key' => $configKey,
+                'identifier' => $identifier,
             ]);
             return false;
         }
@@ -60,7 +65,7 @@ class DiscordWebhookService
             if ($statusCode === 204 || $statusCode === 200) {
                 $this->logNotification(
                     type: 'message',
-                    channel: $configKey,
+                    channel: $identifier,
                     content: $content,
                     embed: [],
                     status: DiscordNotification::STATUS_SENT
@@ -70,7 +75,7 @@ class DiscordWebhookService
 
             $this->logNotification(
                 type: 'message',
-                channel: $configKey,
+                channel: $identifier,
                 content: $content,
                 embed: [],
                 status: DiscordNotification::STATUS_FAILED,
@@ -79,12 +84,12 @@ class DiscordWebhookService
             return false;
         } catch (TransportExceptionInterface $e) {
             $this->logger->error('Discord webhook transport error', [
-                'config_key' => $configKey,
+                'identifier' => $identifier,
                 'error' => $e->getMessage(),
             ]);
             $this->logNotification(
                 type: 'message',
-                channel: $configKey,
+                channel: $identifier,
                 content: $content,
                 embed: [],
                 status: DiscordNotification::STATUS_FAILED,
@@ -93,12 +98,12 @@ class DiscordWebhookService
             return false;
         } catch (\Exception $e) {
             $this->logger->error('Discord webhook error', [
-                'config_key' => $configKey,
+                'identifier' => $identifier,
                 'error' => $e->getMessage(),
             ]);
             $this->logNotification(
                 type: 'message',
-                channel: $configKey,
+                channel: $identifier,
                 content: $content,
                 embed: [],
                 status: DiscordNotification::STATUS_FAILED,
@@ -111,14 +116,15 @@ class DiscordWebhookService
     /**
      * Send a rich embed message to Discord.
      *
-     * @param array<mixed> $embed
+     * @param string $identifier Webhook identifier (e.g., 'system_events')
+     * @param array<mixed> $embed Embed data
      */
-    public function sendEmbed(string $configKey, array $embed): bool
+    public function sendEmbed(string $identifier, array $embed): bool
     {
-        $webhookUrl = $this->getWebhookUrl($configKey);
+        $webhookUrl = $this->getWebhookUrl($identifier);
         if (!$webhookUrl) {
             $this->logger->warning('Discord webhook URL not configured', [
-                'config_key' => $configKey,
+                'identifier' => $identifier,
             ]);
             return false;
         }
@@ -138,7 +144,7 @@ class DiscordWebhookService
             if ($statusCode === 204 || $statusCode === 200) {
                 $this->logNotification(
                     type: 'embed',
-                    channel: $configKey,
+                    channel: $identifier,
                     content: $embed['title'] ?? '',
                     embed: $embed,
                     status: DiscordNotification::STATUS_SENT
@@ -148,7 +154,7 @@ class DiscordWebhookService
 
             $this->logNotification(
                 type: 'embed',
-                channel: $configKey,
+                channel: $identifier,
                 content: $embed['title'] ?? '',
                 embed: $embed,
                 status: DiscordNotification::STATUS_FAILED,
@@ -157,12 +163,12 @@ class DiscordWebhookService
             return false;
         } catch (TransportExceptionInterface $e) {
             $this->logger->error('Discord webhook transport error', [
-                'config_key' => $configKey,
+                'identifier' => $identifier,
                 'error' => $e->getMessage(),
             ]);
             $this->logNotification(
                 type: 'embed',
-                channel: $configKey,
+                channel: $identifier,
                 content: $embed['title'] ?? '',
                 embed: $embed,
                 status: DiscordNotification::STATUS_FAILED,
@@ -171,12 +177,12 @@ class DiscordWebhookService
             return false;
         } catch (\Exception $e) {
             $this->logger->error('Discord webhook error', [
-                'config_key' => $configKey,
+                'identifier' => $identifier,
                 'error' => $e->getMessage(),
             ]);
             $this->logNotification(
                 type: 'embed',
-                channel: $configKey,
+                channel: $identifier,
                 content: $embed['title'] ?? '',
                 embed: $embed,
                 status: DiscordNotification::STATUS_FAILED,
@@ -226,7 +232,7 @@ class DiscordWebhookService
             ]
         );
 
-        return $this->sendEmbed('webhook_system_events', $embed);
+        return $this->sendEmbed('system_events', $embed);
     }
 
     /**
@@ -244,17 +250,19 @@ class DiscordWebhookService
     }
 
     /**
-     * Get webhook URL from configuration.
+     * Get webhook URL from webhook repository.
+     *
+     * @param string $identifier Webhook identifier
      */
-    private function getWebhookUrl(string $configKey): ?string
+    private function getWebhookUrl(string $identifier): ?string
     {
-        $config = $this->configRepository->findOneBy(['configKey' => $configKey]);
+        $webhook = $this->webhookRepository->findByIdentifier($identifier);
 
-        if (!$config || !$config->getIsEnabled()) {
+        if (!$webhook || !$webhook->getIsEnabled()) {
             return null;
         }
 
-        $url = $config->getConfigValue();
+        $url = $webhook->getWebhookUrl();
 
         // Basic validation
         if (empty($url) || !str_starts_with($url, 'https://discord.com/api/webhooks/')) {

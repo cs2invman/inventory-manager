@@ -25,15 +25,15 @@ class TestWebhookCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('config-key', InputArgument::REQUIRED, 'The webhook config key (e.g., webhook_system_events)')
+            ->addArgument('identifier', InputArgument::REQUIRED, 'The webhook identifier (e.g., system_events)')
             ->addArgument('message', InputArgument::REQUIRED, 'The test message to send')
             ->setHelp(<<<'HELP'
 This command sends a test message to a Discord webhook to verify configuration.
 
 Usage:
-  php bin/console app:discord:test-webhook webhook_system_events "Hello from CS2 Inventory!"
+  php bin/console app:discord:test-webhook system_events "Hello from CS2 Inventory!"
 
-The config-key argument should match a webhook URL configuration key in the database.
+The identifier argument should match a webhook identifier in the discord_webhook table.
 The message will be sent immediately (synchronously) for testing purposes.
 HELP
             );
@@ -43,20 +43,20 @@ HELP
     {
         $io = new SymfonyStyle($input, $output);
 
-        $configKey = $input->getArgument('config-key');
+        $identifier = $input->getArgument('identifier');
         $message = $input->getArgument('message');
 
         $io->title('Discord Webhook Test');
 
         $io->section('Configuration');
-        $io->writeln("Config Key: <info>{$configKey}</info>");
+        $io->writeln("Webhook Identifier: <info>{$identifier}</info>");
         $io->writeln("Message: <info>{$message}</info>");
         $io->newLine();
 
         $io->section('Sending Test Message');
 
         try {
-            $success = $this->discordWebhookService->sendMessage($configKey, $message);
+            $success = $this->discordWebhookService->sendMessage($identifier, $message);
 
             if ($success) {
                 $io->success('Test message sent successfully!');

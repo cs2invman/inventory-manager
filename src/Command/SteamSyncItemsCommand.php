@@ -380,7 +380,7 @@ class SteamSyncItemsCommand extends Command
 
             $message = new SendDiscordNotificationMessage(
                 notificationType: 'system_event',
-                webhookConfigKey: 'webhook_system_events',
+                webhookConfigKey: 'system_events',
                 content: 'Steam Item Sync Failed',
                 embed: $embed
             );
