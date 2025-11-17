@@ -135,10 +135,13 @@ Note: The original task file remains untouched - you're creating a NEW file with
 
 ### Step 4: Determine New Task Number
 ```
-1. Look at existing task files in the tasks/ directory
-2. Find the highest numbered task
-3. Propose the next available task number for the updated version
-4. Ask user to confirm the new task number
+1. Check BOTH tasks/ and tasks/completed/ folders for all task files
+2. Find all .md files with numeric prefixes in both folders
+3. Extract numbers less than 999 (999 is reserved for backlog ideas)
+4. Use the highest number + 1 as the next task number
+5. Example: If highest is 58 in completed/ and 52 in tasks/, next is 59
+6. Propose the next available task number for the updated version
+7. Confirm with user if needed
 ```
 
 ### Step 5: Create New Task File
@@ -170,14 +173,15 @@ Note: The original task file remains untouched - you're creating a NEW file with
 1. Read `tasks/42-discord-bot-foundation.md`
 2. Identify "Future Improvements" or "Enhancement Ideas" sections
 3. Ask: "Should I remove the future enhancements section and keep only the MVP requirements?"
-4. After user confirms, look at tasks/ directory and find highest task number (e.g., 50)
-5. Propose: "I'll create task #51 with the scope-reduced version. Should I proceed?"
-6. After confirmation, create `tasks/51-discord-bot-foundation.md` with:
+4. After user confirms, check BOTH tasks/ and tasks/completed/ folders for highest task number
+5. Example: If highest is 58 in completed/ and 52 in tasks/, next available is 59
+6. Propose: "I'll create task #59 with the scope-reduced version. Should I proceed?"
+7. After confirmation, create `tasks/59-discord-bot-foundation.md` with:
    - MVP requirements only
    - Reference in notes: "Updated from Task #42: Removed future enhancements to focus on MVP"
    - All other relevant content from original
-7. Confirm: "Created tasks/51-discord-bot-foundation.md with MVP-focused scope. Original task #42 remains unchanged."
-8. Optionally suggest: "Would you like me to create a separate backlog task (999-*) for those future enhancements?"
+8. Confirm: "Created tasks/59-discord-bot-foundation.md with MVP-focused scope. Original task #42 remains unchanged."
+9. Optionally suggest: "Would you like me to create a separate backlog task (999-*) for those future enhancements?"
 
 ### Example 2: Clarifying Requirements
 
@@ -239,9 +243,10 @@ Note: The original task file remains untouched - you're creating a NEW file with
    - Note the original task number for reference
 
 2. **Determine the new task number**
-   - Look at tasks/ directory for highest number
-   - Propose next available number
-   - Confirm with user
+   - Check BOTH tasks/ and tasks/completed/ folders
+   - Find all .md files with numeric prefixes (exclude 999)
+   - Use the highest number + 1 as the next task number
+   - Confirm with user if needed
 
 3. **Create the new task document**
    - Start with the original content as a base

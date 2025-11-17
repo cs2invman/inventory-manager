@@ -1,6 +1,6 @@
 # Discord Admin Settings UI
 
-**Status**: Not Started
+**Status**: Superseded by Task #59
 **Priority**: Medium
 **Estimated Effort**: Medium
 **Created**: 2025-11-08
