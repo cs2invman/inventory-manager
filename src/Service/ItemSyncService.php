@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\Item;
 use App\Entity\ItemPrice;
+use App\Entity\ProcessQueue;
 use App\Repository\ItemRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -19,7 +20,8 @@ class ItemSyncService
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly ItemRepository $itemRepository,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly ProcessQueueService $processQueueService
     ) {
     }
 
@@ -85,6 +87,10 @@ class ItemSyncService
             try {
                 $batchEnd = min($batchStart + $batchSize, $stats['total']);
 
+                // Track items for queue processing
+                $itemsWithNewPrices = [];
+                $newlyCreatedItems = [];
+
                 for ($index = $batchStart; $index < $batchEnd; $index++) {
                     $itemData = $itemsData[$index];
 
@@ -93,6 +99,10 @@ class ItemSyncService
 
                         if ($result['action'] === 'added') {
                             $stats['added']++;
+                            // Track newly created items for queue
+                            if ($result['item']) {
+                                $newlyCreatedItems[] = $result['item'];
+                            }
                         } elseif ($result['action'] === 'updated') {
                             $stats['updated']++;
                         } elseif ($result['action'] === 'skipped') {
@@ -101,6 +111,10 @@ class ItemSyncService
 
                         if ($result['price_created']) {
                             $stats['price_records_created']++;
+                            // Track items with new prices for queue
+                            if ($result['item']) {
+                                $itemsWithNewPrices[] = $result['item'];
+                            }
                         }
 
                     } catch (\Throwable $e) {
@@ -116,6 +130,29 @@ class ItemSyncService
                 // Flush and commit this batch
                 $this->entityManager->flush();
                 $this->entityManager->commit();
+
+                // Enqueue items for background processing (after flush to ensure IDs are set)
+                if (!empty($itemsWithNewPrices)) {
+                    $enqueuedCount = $this->processQueueService->enqueueBulk(
+                        $itemsWithNewPrices,
+                        ProcessQueue::TYPE_PRICE_UPDATED
+                    );
+                    $this->logger->debug('Enqueued items with new prices', [
+                        'count' => $enqueuedCount,
+                        'batch_start' => $batchStart
+                    ]);
+                }
+
+                if (!empty($newlyCreatedItems)) {
+                    $enqueuedCount = $this->processQueueService->enqueueBulk(
+                        $newlyCreatedItems,
+                        ProcessQueue::TYPE_NEW_ITEM
+                    );
+                    $this->logger->debug('Enqueued newly created items', [
+                        'count' => $enqueuedCount,
+                        'batch_start' => $batchStart
+                    ]);
+                }
 
                 // Clear entity manager and force garbage collection
                 $this->entityManager->clear();
@@ -165,6 +202,7 @@ class ItemSyncService
             'action' => 'skipped',
             'price_created' => false,
             'external_id' => null,
+            'item' => null,
         ];
 
         // Extract external ID (required)
@@ -208,6 +246,9 @@ class ItemSyncService
 
         // Persist item
         $this->entityManager->persist($item);
+
+        // Store item in result for queue processing
+        $result['item'] = $item;
 
         // Create price history record if not skipping prices
         if (!$skipPrices && $this->hasPriceData($itemData)) {
