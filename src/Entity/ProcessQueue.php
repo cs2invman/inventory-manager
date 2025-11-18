@@ -3,16 +3,14 @@
 namespace App\Entity;
 
 use App\Repository\ProcessQueueRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ProcessQueueRepository::class)]
 #[ORM\Table(name: 'process_queue')]
 #[ORM\Index(name: 'idx_status_created', columns: ['status', 'created_at'])]
 #[ORM\Index(name: 'idx_process_type', columns: ['process_type'])]
-#[ORM\UniqueConstraint(
-    name: 'uniq_item_type_status',
-    columns: ['item_id', 'process_type', 'status']
-)]
 class ProcessQueue
 {
     public const TYPE_PRICE_UPDATED = 'PRICE_UPDATED';
@@ -45,9 +43,14 @@ class ProcessQueue
     #[ORM\Column(type: 'integer')]
     private int $attempts = 0;
 
+    /** @var Collection<int, ProcessQueueProcessor> */
+    #[ORM\OneToMany(targetEntity: ProcessQueueProcessor::class, mappedBy: 'processQueue', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $processorTracking;
+
     public function __construct()
     {
         $this->createdAt = new \DateTime();
+        $this->processorTracking = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -129,6 +132,36 @@ class ProcessQueue
     public function setAttempts(int $attempts): self
     {
         $this->attempts = $attempts;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, ProcessQueueProcessor>
+     */
+    public function getProcessorTracking(): Collection
+    {
+        return $this->processorTracking;
+    }
+
+    public function addProcessorTracking(ProcessQueueProcessor $processorTracking): self
+    {
+        if (!$this->processorTracking->contains($processorTracking)) {
+            $this->processorTracking->add($processorTracking);
+            $processorTracking->setProcessQueue($this);
+        }
+
+        return $this;
+    }
+
+    public function removeProcessorTracking(ProcessQueueProcessor $processorTracking): self
+    {
+        if ($this->processorTracking->removeElement($processorTracking)) {
+            // set the owning side to null (unless already changed)
+            if ($processorTracking->getProcessQueue() === $this) {
+                $processorTracking->setProcessQueue(null);
+            }
+        }
+
         return $this;
     }
 }

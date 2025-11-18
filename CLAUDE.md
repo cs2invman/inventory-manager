@@ -56,11 +56,23 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 - Tracks: transaction_date, type (income/expense), amount, currency, description, category
 - For tracking CS2-related financial transactions
 
+**ProcessQueue** (asynchronous processing queue)
+- Queues items for background processing (price trends, anomaly detection, notifications)
+- Tracks: item, processType, status (pending/processing/failed), attempts, errorMessage
+- FIFO ordering, automatic deduplication
+- Multi-processor support: one queue item can be processed by multiple processors
+- Only deleted when ALL processors complete successfully
+
+**ProcessQueueProcessor** (tracks individual processor completions)
+- One entry per processor per queue item
+- Tracks: processQueue, processorName, status, completedAt, failedAt, errorMessage, attempts
+- Allows independent processor failures without blocking others
+
 ### Key Services
 
 **SteamWebApiClient**: Fetches CS2 data from SteamWebAPI.com (5500 items/request)
 
-**ItemSyncService**: Syncs JSON files to database, handles deduplication by external_id, deferred deactivation for chunks. Auto-updates Item.currentPrice when adding new prices
+**ItemSyncService**: Syncs JSON files to database, handles deduplication by external_id, deferred deactivation for chunks. Auto-updates Item.currentPrice when adding new prices. Automatically enqueues items with new prices (TYPE_PRICE_UPDATED) and newly created items (TYPE_NEW_ITEM) to ProcessQueue for background processing
 
 **InventoryImportService**: Parses Steam inventory JSON, matches by classId, extracts float/stickers/keychains, import deletes only items where `storageBox = null`. Skips default Music Kit (Valve, CS:GO)
 
@@ -71,6 +83,10 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 **UserConfigService**: Manages Steam ID settings, validates SteamID64 format
 
 **DiscordWebhookService**: Sends notifications to Discord via webhooks. Uses DiscordWebhookRepository to look up webhooks by identifier. Handles rate limiting, message formatting, and tracks notification history in database. Messages dispatched via async message bus
+
+**ProcessQueueService**: Manages the processing queue for asynchronous item operations. Provides enqueue/dequeue operations, status updates, and bulk enqueueing with automatic deduplication. Automatically creates processor tracking entries for all registered processors when enqueueing items
+
+**ProcessorRegistry**: Auto-discovers and registers queue processors via compiler pass. Maps process types to MULTIPLE processor implementations. Processors implement ProcessorInterface (process(), getProcessType(), getProcessorName() methods). Supports multiple processors per type - all must complete before queue item is deleted
 
 ### Essential Workflows
 
@@ -143,6 +159,11 @@ docker compose exec php php bin/console app:steam:sync-items      # Syncs to DB 
 # Item management
 docker compose exec php php bin/console app:item:backfill-current-price  # Backfill currentPrice for existing items
 
+# Queue processing
+docker compose exec php php bin/console app:queue:process              # Process queue items (cron-optimized)
+docker compose exec php php bin/console app:queue:process --limit=50   # Process max 50 items
+docker compose exec php php bin/console app:queue:process --type=price_trend  # Process specific type only
+
 # Discord notifications
 docker compose exec php php bin/console app:discord:test-webhook system_events "Test message"
 
@@ -170,6 +191,38 @@ The `app:steam:sync-items` command is cron-optimized: processes files in `var/da
 - Configurable via: `SYNC_BATCH_SIZE`, `SYNC_MEMORY_LIMIT`, `SYNC_MEMORY_WARNING_THRESHOLD`
 - Processed files → `var/data/steam-items/processed`
 - Failed files remain for retry
+
+**Queue Processing:**
+
+The `app:queue:process` command is cron-optimized: processes pending queue items, exits silently if none found.
+
+```bash
+# Process queue every 5 minutes (recommended)
+*/5 * * * * cd /path/to/project && docker compose exec -T php php bin/console app:queue:process >> var/log/queue-process.log 2>&1
+```
+
+**Queue Behavior:**
+- Processes up to 100 items per run (configurable via --limit)
+- FIFO ordering (oldest items first)
+- **Multi-processor support**: Each queue item processed by ALL registered processors for that type
+- Individual processor tracking: Each processor's completion tracked separately
+- Queue item only deleted when ALL processors complete successfully
+- If any processor fails, others continue processing; failed processor tracked with error details
+- Discord notifications sent to 'system_events' webhook on individual processor failures
+- Entity manager cleared every 10 items to prevent memory issues
+
+**Maintenance:**
+- Find stuck 'processing' items: `SELECT * FROM process_queue WHERE status='processing' AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)`
+- Reset stuck items: `UPDATE process_queue SET status='pending' WHERE status='processing' AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)`
+- View failed processors: `SELECT pq.id, pq.process_type, pqp.processor_name, pqp.error_message FROM process_queue pq JOIN process_queue_processor pqp ON pq.id = pqp.process_queue_id WHERE pqp.status='failed'`
+- Clean up old failed items: `DELETE FROM process_queue WHERE status='failed' AND failed_at < DATE_SUB(NOW(), INTERVAL 7 DAY)`
+
+**Creating New Processors:**
+To add a new processor for a queue type (e.g., PRICE_UPDATED):
+1. Create class implementing `ProcessorInterface` in `src/Service/QueueProcessor/`
+2. Implement: `process()`, `getProcessType()`, `getProcessorName()` methods
+3. Auto-registered via compiler pass (tagged as `app.queue_processor`)
+4. Next enqueued item will automatically create tracking entry for new processor
 
 ## Configuration
 
