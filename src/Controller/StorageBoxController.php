@@ -234,4 +234,40 @@ class StorageBoxController extends AbstractController
             return $this->render('storage_box/create_manual.html.twig', ['name' => $name]);
         }
     }
+
+    #[Route('/delete/{id}', name: 'storage_box_delete', methods: ['POST'])]
+    public function deleteManualBox(#[MapEntity] StorageBox $storageBox): Response
+    {
+        // Security check: Verify user owns the box
+        if ($storageBox->getUser() !== $this->getUser()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        // Check if box is manual (not Steam-imported)
+        if (!$storageBox->isManualBox()) {
+            $this->addFlash('error', 'Cannot delete Steam-imported storage boxes. They sync from your Steam inventory.');
+            return $this->redirectToRoute('inventory_index', ['filter' => 'box', 'box_id' => $storageBox->getId()]);
+        }
+
+        // Check if box is empty
+        $itemCount = $storageBox->getItemCount();
+        if ($itemCount > 0) {
+            $this->addFlash('error', sprintf('Cannot delete storage box with items. The box contains %d item(s).', $itemCount));
+            return $this->redirectToRoute('inventory_index', ['filter' => 'box', 'box_id' => $storageBox->getId()]);
+        }
+
+        try {
+            $boxName = $storageBox->getName();
+            $this->storageBoxService->deleteManualBox($storageBox);
+
+            $this->addFlash('success', sprintf("Storage box '%s' has been deleted successfully.", $boxName));
+            return $this->redirectToRoute('inventory_index', ['filter' => 'all']);
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('error', $e->getMessage());
+            return $this->redirectToRoute('inventory_index', ['filter' => 'box', 'box_id' => $storageBox->getId()]);
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Failed to delete storage box: ' . $e->getMessage());
+            return $this->redirectToRoute('inventory_index', ['filter' => 'box', 'box_id' => $storageBox->getId()]);
+        }
+    }
 }

@@ -23,6 +23,27 @@ CS2 Inventory Management System - Track, manage, and value CS2 inventory items. 
 - ✅ Always: `docker compose run --rm node npm ...`
 - ❌ Never: `php bin/console ...` or `composer ...` or `npm ...`
 
+## Task Management Workflow
+
+**⚠️ IMPORTANT: When working on tasks from the `tasks/` directory, ALWAYS follow the "Task Completion Instructions" section at the bottom of each task file.**
+
+**What "Completed" means**: A task is "completed" when you finish the first pass of implementation - all code written, assets rebuilt, ready for user testing. The user will test and commit afterward. **Completing the task file (updating status and moving it) is part of the work itself**, not something done after user testing.
+
+When completing tasks:
+1. **Implement all requirements** listed in the task file
+2. **Rebuild assets if needed** (after template/CSS/JS changes)
+3. **Check for "Task Completion Instructions" section** at the bottom of the task file
+4. **Update the task file**:
+   - Change `**Status**: Not Started` to `**Status**: Completed`
+   - Add completion date: `**Completed**: [Date]`
+5. **Move to completed folder**:
+   - Move the file from `tasks/` to `tasks/completed/`
+   - Keep the same filename
+
+**Do this immediately after implementing** - don't wait for user testing or commits. The task file completion is part of your deliverable.
+
+This ensures proper tracking of completed work and maintains a clean task organization.
+
 ## Core Architecture
 
 ### Entity Relationships
