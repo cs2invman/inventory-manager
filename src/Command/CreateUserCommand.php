@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Command\Traits\CronOptimizedCommandTrait;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -20,6 +21,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 )]
 class CreateUserCommand extends Command
 {
+    use CronOptimizedCommandTrait;
+
     public function __construct(
         private EntityManagerInterface $entityManager,
         private UserPasswordHasherInterface $passwordHasher
@@ -47,7 +50,7 @@ class CreateUserCommand extends Command
         $lastName = $input->getArgument('lastName');
         $isAdmin = $input->getOption('admin');
 
-        // Check if user already exists
+        // Check if user already exists (always show error)
         $existingUser = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
         if ($existingUser) {
             $io->error(sprintf('User with email "%s" already exists!', $email));
@@ -57,10 +60,17 @@ class CreateUserCommand extends Command
         // Get password
         $password = $input->getOption('password');
         if (!$password) {
-            $question = new Question('Please enter the password: ');
-            $question->setHidden(true);
-            $question->setHiddenFallback(false);
-            $password = $io->askQuestion($question);
+            // Only allow interactive prompts if output is interactive (has TTY)
+            if ($output->isInteractive()) {
+                $question = new Question('Please enter the password: ');
+                $question->setHidden(true);
+                $question->setHiddenFallback(false);
+                $password = $io->askQuestion($question);
+            } else {
+                // Non-interactive mode (cron, pipes, etc) - password is required
+                $io->error('Password is required in non-interactive mode. Use --password option.');
+                return Command::FAILURE;
+            }
         }
 
         if (!$password) {
@@ -90,13 +100,16 @@ class CreateUserCommand extends Command
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 
-        $io->success(sprintf(
-            'User "%s" (%s %s) created successfully!%s',
-            $email,
-            $firstName,
-            $lastName,
-            $isAdmin ? ' [ADMIN]' : ''
-        ));
+        // Only show success message if verbose (quiet mode by default for cron)
+        if ($this->isVerbose($output)) {
+            $io->success(sprintf(
+                'User "%s" (%s %s) created successfully!%s',
+                $email,
+                $firstName,
+                $lastName,
+                $isAdmin ? ' [ADMIN]' : ''
+            ));
+        }
 
         return Command::SUCCESS;
     }

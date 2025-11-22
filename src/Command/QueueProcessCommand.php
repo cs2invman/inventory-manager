@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Command\Traits\CronOptimizedCommandTrait;
 use App\Service\ProcessQueueService;
 use App\Service\QueueProcessor\ProcessorRegistry;
 use App\Service\Discord\DiscordWebhookService;
@@ -19,6 +20,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class QueueProcessCommand extends Command
 {
+    use CronOptimizedCommandTrait;
+
     public function __construct(
         private ProcessQueueService $queueService,
         private ProcessorRegistry $processorRegistry,
@@ -45,6 +48,12 @@ class QueueProcessCommand extends Command
                 InputOption::VALUE_REQUIRED,
                 'Only process specific type',
                 null
+            )
+            ->addOption(
+                'progress',
+                null,
+                InputOption::VALUE_NONE,
+                'Show progress bar during processing'
             );
     }
 
@@ -61,10 +70,12 @@ class QueueProcessCommand extends Command
             return Command::SUCCESS;
         }
 
-        $output->writeln(sprintf(
-            '<info>Processing %d queue items...</info>',
-            count($queueItems)
-        ));
+        if ($this->isVerbose($output)) {
+            $output->writeln(sprintf(
+                '<info>Processing %d queue items...</info>',
+                count($queueItems)
+            ));
+        }
 
         $processed = 0;
         $failed = 0;
@@ -104,12 +115,14 @@ class QueueProcessCommand extends Command
 
                     $processed++;
 
-                    $output->writeln(sprintf(
-                        '  ✓ Processed %s / %s for item #%d',
-                        $queueItem->getProcessType(),
-                        $processorName,
-                        $queueItem->getItem()->getId()
-                    ));
+                    if ($this->isVerbose($output)) {
+                        $output->writeln(sprintf(
+                            '  ✓ Processed %s / %s for item #%d',
+                            $queueItem->getProcessType(),
+                            $processorName,
+                            $queueItem->getItem()->getId()
+                        ));
+                    }
 
                 } catch (\Exception $e) {
                     $failed++;
@@ -142,13 +155,15 @@ class QueueProcessCommand extends Command
                     // Send Discord notification
                     $this->sendFailureNotification($queueItem, $processorName, $e);
 
-                    $output->writeln(sprintf(
-                        '  ✗ <error>Failed %s / %s for item #%d: %s</error>',
-                        $queueItem->getProcessType(),
-                        $processorName,
-                        $queueItem->getItem()->getId(),
-                        $e->getMessage()
-                    ));
+                    if ($this->isVerbose($output)) {
+                        $output->writeln(sprintf(
+                            '  ✗ <error>Failed %s / %s for item #%d: %s</error>',
+                            $queueItem->getProcessType(),
+                            $processorName,
+                            $queueItem->getItem()->getId(),
+                            $e->getMessage()
+                        ));
+                    }
                 }
             }
 
@@ -158,12 +173,15 @@ class QueueProcessCommand extends Command
             }
         }
 
-        $output->writeln('');
-        $output->writeln(sprintf(
-            '<info>Completed: %d processed, %d failed</info>',
-            $processed,
-            $failed
-        ));
+        // Only show summary in verbose mode
+        if ($this->isVerbose($output)) {
+            $output->writeln('');
+            $output->writeln(sprintf(
+                '<info>Completed: %d processed, %d failed</info>',
+                $processed,
+                $failed
+            ));
+        }
 
         return Command::SUCCESS;
     }

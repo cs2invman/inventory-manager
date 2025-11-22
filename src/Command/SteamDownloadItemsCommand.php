@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Command\Traits\CronOptimizedCommandTrait;
 use App\Service\SteamWebApiClient;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -17,6 +18,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class SteamDownloadItemsCommand extends Command
 {
+    use CronOptimizedCommandTrait;
+
     private const RECENT_FILE_THRESHOLD_MINUTES = 25;
     private const CHUNK_SIZE = 5500;
 
@@ -43,6 +46,12 @@ class SteamDownloadItemsCommand extends Command
                 'f',
                 InputOption::VALUE_NONE,
                 'Download even if a recent file exists'
+            )
+            ->addOption(
+                'progress',
+                null,
+                InputOption::VALUE_NONE,
+                'Show progress bar during processing'
             )
         ;
     }
@@ -81,9 +90,12 @@ class SteamDownloadItemsCommand extends Command
                     $this->downloadLogger->info('Recent file found, skipping download', [
                         'file' => basename($recentFile),
                     ]);
-                    $io->warning("A recent file was downloaded less than " . self::RECENT_FILE_THRESHOLD_MINUTES . " minutes ago:");
-                    $io->text("  {$recentFile}");
-                    $io->text("Use --force to download anyway.");
+                    // Cron-optimized: exit silently if recent file exists
+                    if ($this->isVerbose($output)) {
+                        $io->warning("A recent file was downloaded less than " . self::RECENT_FILE_THRESHOLD_MINUTES . " minutes ago:");
+                        $io->text("  {$recentFile}");
+                        $io->text("Use --force to download anyway.");
+                    }
                     return Command::SUCCESS;
                 }
             }
@@ -92,8 +104,10 @@ class SteamDownloadItemsCommand extends Command
             $timestamp = (new \DateTimeImmutable())->format('Y-m-d-His');
 
             // Download first chunk to determine total count
-            $io->text('Downloading CS2 items from SteamWebAPI (chunked)...');
-            $io->newLine();
+            if ($this->isVerbose($output)) {
+                $io->text('Downloading CS2 items from SteamWebAPI (chunked)...');
+                $io->newLine();
+            }
 
             $startTime = microtime(true);
             $firstChunkJson = $this->apiClient->fetchItemsPaginated(self::CHUNK_SIZE, 1);
@@ -131,7 +145,9 @@ class SteamDownloadItemsCommand extends Command
                 'total_items' => $totalItemsDownloaded,
             ]);
 
-            $io->text("Chunk {$page} of ~{$totalChunks}: {$firstChunkItemCount} items, {$this->formatBytes($bytesWritten)}");
+            if ($this->isVerbose($output)) {
+                $io->text("Chunk {$page} of ~{$totalChunks}: {$firstChunkItemCount} items, {$this->formatBytes($bytesWritten)}");
+            }
 
             // Download remaining chunks
             $page = 2;
@@ -167,7 +183,9 @@ class SteamDownloadItemsCommand extends Command
                     'total_items' => $totalItemsDownloaded,
                 ]);
 
-                $io->text("Chunk {$page} of ~{$totalChunks}: {$chunkItemCount} items, {$this->formatBytes($bytesWritten)}");
+                if ($this->isVerbose($output)) {
+                    $io->text("Chunk {$page} of ~{$totalChunks}: {$chunkItemCount} items, {$this->formatBytes($bytesWritten)}");
+                }
 
                 // If this chunk had fewer items than CHUNK_SIZE, we're likely done
                 if ($chunkItemCount < self::CHUNK_SIZE) {
@@ -212,18 +230,20 @@ class SteamDownloadItemsCommand extends Command
                 'memory_peak' => $this->formatBytes(memory_get_peak_usage(true)),
             ]);
 
-            // Display success message
-            $io->newLine();
-            $io->success('Download completed successfully');
+            // Display success message only in verbose mode
+            if ($this->isVerbose($output)) {
+                $io->newLine();
+                $io->success('Download completed successfully');
 
-            $io->definitionList(
-                ['Items downloaded' => number_format($totalItemsDownloaded)],
-                ['Total chunks' => $actualTotalChunks],
-                ['Chunk size' => number_format(self::CHUNK_SIZE) . ' items/chunk'],
-                ['Total file size' => $this->formatBytes($totalBytesWritten)],
-                ['Duration' => "{$duration}s"],
-                ['Saved to' => $importDir]
-            );
+                $io->definitionList(
+                    ['Items downloaded' => number_format($totalItemsDownloaded)],
+                    ['Total chunks' => $actualTotalChunks],
+                    ['Chunk size' => number_format(self::CHUNK_SIZE) . ' items/chunk'],
+                    ['Total file size' => $this->formatBytes($totalBytesWritten)],
+                    ['Duration' => "{$duration}s"],
+                    ['Saved to' => $importDir]
+                );
+            }
 
             return Command::SUCCESS;
 

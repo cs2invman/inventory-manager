@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Command\Traits\CronOptimizedCommandTrait;
 use App\Repository\ItemRepository;
 use App\Service\ProcessQueueService;
 use App\Service\QueueProcessor\ProcessorRegistry;
@@ -10,6 +11,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -19,6 +21,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class QueueEnqueueAllCommand extends Command
 {
+    use CronOptimizedCommandTrait;
+
     public function __construct(
         private ItemRepository $itemRepository,
         private ProcessQueueService $queueService,
@@ -35,6 +39,12 @@ class QueueEnqueueAllCommand extends Command
                 'type',
                 InputArgument::REQUIRED,
                 'Process type (e.g., PRICE_UPDATED, NEW_ITEM)'
+            )
+            ->addOption(
+                'progress',
+                null,
+                InputOption::VALUE_NONE,
+                'Show progress bar during processing'
             );
     }
 
@@ -43,7 +53,7 @@ class QueueEnqueueAllCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $processType = $input->getArgument('type');
 
-        // Validate that processors are registered for this type
+        // Validate that processors are registered for this type (always show errors)
         if (!$this->processorRegistry->hasProcessor($processType)) {
             $io->error(sprintf(
                 'No processors registered for type: %s',
@@ -62,33 +72,44 @@ class QueueEnqueueAllCommand extends Command
 
         // Get processor names for this type
         $processorNames = $this->processorRegistry->getProcessorNames($processType);
-        $io->info(sprintf(
-            'Processors for %s: %s',
-            $processType,
-            implode(', ', $processorNames)
-        ));
+        if ($this->isVerbose($output)) {
+            $io->info(sprintf(
+                'Processors for %s: %s',
+                $processType,
+                implode(', ', $processorNames)
+            ));
+        }
 
         // Get total count of items
-        $io->text('Counting items in database...');
+        if ($this->isVerbose($output)) {
+            $io->text('Counting items in database...');
+        }
         $totalItems = $this->itemRepository->count([]);
 
+        // Cron-optimized: exit silently if no items exist
         if ($totalItems === 0) {
-            $io->warning('No items found in database.');
+            if ($this->isVerbose($output)) {
+                $io->warning('No items found in database.');
+            }
             return Command::SUCCESS;
         }
 
-        $io->text(sprintf('Found %d items', $totalItems));
+        if ($this->isVerbose($output)) {
+            $io->text(sprintf('Found %d items', $totalItems));
+        }
 
         // Process in batches to avoid memory issues
         $batchSize = 100;
         $totalBatches = (int) ceil($totalItems / $batchSize);
         $totalEnqueued = 0;
 
-        $io->text(sprintf('Enqueueing items for type: %s (batch size: %d)', $processType, $batchSize));
-        $io->newLine();
+        if ($this->isVerbose($output)) {
+            $io->text(sprintf('Enqueueing items for type: %s (batch size: %d)', $processType, $batchSize));
+            $io->newLine();
+        }
 
-        $progressBar = $io->createProgressBar($totalItems);
-        $progressBar->start();
+        // Create progress bar only if --progress flag is set
+        $progressBar = $this->createProgressBarIfRequested($input, $output, $io, $totalItems);
 
         for ($i = 0; $i < $totalBatches; $i++) {
             $offset = $i * $batchSize;
@@ -101,32 +122,38 @@ class QueueEnqueueAllCommand extends Command
             $totalEnqueued += $enqueued;
 
             // Update progress
-            $progressBar->advance(count($items));
+            if ($progressBar) {
+                $progressBar->advance(count($items));
+            }
 
             // Clear entity manager to free memory
             $this->em->clear();
         }
 
-        $progressBar->finish();
-        $io->newLine(2);
+        if ($progressBar) {
+            $progressBar->finish();
+            $io->newLine(2);
+        }
 
-        // Show summary
-        $io->success(sprintf(
-            'Enqueued %d items (skipped %d already queued)',
-            $totalEnqueued,
-            $totalItems - $totalEnqueued
-        ));
+        // Show summary only in verbose mode
+        if ($this->isVerbose($output)) {
+            $io->success(sprintf(
+                'Enqueued %d items (skipped %d already queued)',
+                $totalEnqueued,
+                $totalItems - $totalEnqueued
+            ));
 
-        $io->table(
-            ['Metric', 'Value'],
-            [
-                ['Total items in database', number_format($totalItems)],
-                ['Items enqueued', number_format($totalEnqueued)],
-                ['Items already queued', number_format($totalItems - $totalEnqueued)],
-                ['Process type', $processType],
-                ['Processors', implode(', ', $processorNames)],
-            ]
-        );
+            $io->table(
+                ['Metric', 'Value'],
+                [
+                    ['Total items in database', number_format($totalItems)],
+                    ['Items enqueued', number_format($totalEnqueued)],
+                    ['Items already queued', number_format($totalItems - $totalEnqueued)],
+                    ['Process type', $processType],
+                    ['Processors', implode(', ', $processorNames)],
+                ]
+            );
+        }
 
         return Command::SUCCESS;
     }

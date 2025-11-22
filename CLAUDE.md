@@ -132,6 +132,19 @@ This ensures proper tracking of completed work and maintains a clean task organi
 **Reusable Components:**
 - `templates/components/confirmation_modal.html.twig` - Two-step confirmation pattern (confirm button + text input verification)
 
+## Console Command Standards
+
+**All `app:*` commands MUST follow these rules:**
+
+1. **Use `CronOptimizedCommandTrait`** in all commands
+2. **Quiet by default**: No output unless `-v` flag used (errors always shown)
+3. **Progress bars**: Add `--progress` option for batch commands, only show if flag set + verbose mode
+4. **Cron-friendly**: Exit silently (no output) when no work available
+5. **No interactive prompts**: Check `$output->isInteractive()` before prompting
+6. **Verbosity checks**: Wrap all info output in `if ($this->isVerbose($output))`
+7. **Memory management**: Clear entity manager every 10-50 items in batch operations
+8. **Progress bar creation**: Use `$this->createProgressBarIfRequested($input, $output, $io, $total)`
+
 ## Development Commands
 
 ### Docker Setup

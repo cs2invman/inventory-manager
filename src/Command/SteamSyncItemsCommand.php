@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Command\Traits\CronOptimizedCommandTrait;
 use App\Message\SendDiscordNotificationMessage;
 use App\Service\ItemSyncService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,6 +23,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
 )]
 class SteamSyncItemsCommand extends Command
 {
+    use CronOptimizedCommandTrait;
+
     private const MAX_FILES_PER_RUN = 2;
     private const LOCK_TTL = 180; // 3 minutes max execution time (reduced since we only process 2 files)
 
@@ -47,6 +50,12 @@ class SteamSyncItemsCommand extends Command
                 null,
                 InputOption::VALUE_NONE,
                 'Only sync item metadata, skip price history'
+            )
+            ->addOption(
+                'progress',
+                null,
+                InputOption::VALUE_NONE,
+                'Show progress bar during processing'
             )
         ;
     }
@@ -243,45 +252,6 @@ class SteamSyncItemsCommand extends Command
                 'limit' => $this->formatBytes($limit),
             ]);
         }
-    }
-
-    /**
-     * Parse PHP memory_limit format to bytes
-     */
-    private function parseMemoryLimit(string $limit): int
-    {
-        $limit = trim($limit);
-
-        // Handle unlimited (-1)
-        if ($limit === '-1') {
-            return PHP_INT_MAX;
-        }
-
-        // Extract number and unit
-        $value = (int) $limit;
-        $unit = strtoupper(substr($limit, -1));
-
-        // Convert to bytes
-        return match ($unit) {
-            'G' => $value * 1024 * 1024 * 1024,
-            'M' => $value * 1024 * 1024,
-            'K' => $value * 1024,
-            default => $value,
-        };
-    }
-
-    /**
-     * Format bytes to human-readable string
-     */
-    private function formatBytes(int $bytes): string
-    {
-        $units = ['B', 'KB', 'MB', 'GB'];
-        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
-
-        $bytes /= (1 << (10 * $pow));
-
-        return round($bytes, 2) . ' ' . $units[$pow];
     }
 
 

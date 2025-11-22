@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Command\Traits\CronOptimizedCommandTrait;
 use App\Entity\Item;
 use App\Entity\ItemPrice;
 use Doctrine\ORM\EntityManagerInterface;
@@ -18,6 +19,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class BackfillCurrentPriceCommand extends Command
 {
+    use CronOptimizedCommandTrait;
+
     private const BATCH_SIZE = 100;
 
     public function __construct(
@@ -35,6 +38,12 @@ class BackfillCurrentPriceCommand extends Command
                 InputOption::VALUE_NONE,
                 'Force backfill even for items that already have current_price_id set'
             )
+            ->addOption(
+                'progress',
+                null,
+                InputOption::VALUE_NONE,
+                'Show progress bar during processing'
+            )
         ;
     }
 
@@ -43,7 +52,10 @@ class BackfillCurrentPriceCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $force = $input->getOption('force');
 
-        $io->title('Backfilling current_price_id for Items');
+        // Only show title in verbose mode
+        if ($this->isVerbose($output)) {
+            $io->title('Backfilling current_price_id for Items');
+        }
 
         // First, get all item IDs to process (fetch IDs only to avoid memory issues)
         $idsQb = $this->entityManager->createQueryBuilder();
@@ -52,28 +64,37 @@ class BackfillCurrentPriceCommand extends Command
 
         if (!$force) {
             $idsQb->where('i.currentPrice IS NULL');
-            $io->note('Only processing items without current_price_id set');
+            if ($this->isVerbose($output)) {
+                $io->note('Only processing items without current_price_id set');
+            }
         } else {
-            $io->note('Force mode: processing ALL items');
+            if ($this->isVerbose($output)) {
+                $io->note('Force mode: processing ALL items');
+            }
         }
 
         $itemIds = array_column($idsQb->getQuery()->getResult(), 'id');
         $totalItems = count($itemIds);
 
+        // Cron-optimized: exit silently if no items to process
         if ($totalItems === 0) {
-            $io->success('No items to process');
+            if ($this->isVerbose($output)) {
+                $io->success('No items to process');
+            }
             return Command::SUCCESS;
         }
 
-        $io->text(sprintf('Found %d items to process', $totalItems));
-        $io->newLine();
+        if ($this->isVerbose($output)) {
+            $io->text(sprintf('Found %d items to process', $totalItems));
+            $io->newLine();
+        }
 
         $backfilledCount = 0;
         $skippedCount = 0;
         $processedCount = 0;
 
-        $progressBar = $io->createProgressBar($totalItems);
-        $progressBar->start();
+        // Create progress bar only if --progress flag is set
+        $progressBar = $this->createProgressBarIfRequested($input, $output, $io, $totalItems);
 
         // Process item IDs in batches
         $batches = array_chunk($itemIds, self::BATCH_SIZE);
@@ -113,21 +134,28 @@ class BackfillCurrentPriceCommand extends Command
             $this->entityManager->flush();
             $this->entityManager->clear();
 
-            $progressBar->advance(count($items));
+            if ($progressBar) {
+                $progressBar->advance(count($items));
+            }
         }
 
-        $progressBar->finish();
+        if ($progressBar) {
+            $progressBar->finish();
+            $io->newLine(2);
+        }
 
-        $io->newLine(2);
-        $io->success('Backfill completed!');
-        $io->table(
-            ['Metric', 'Count'],
-            [
-                ['Total items processed', $processedCount],
-                ['Items with current_price_id set', $backfilledCount],
-                ['Items without prices (skipped)', $skippedCount],
-            ]
-        );
+        // Only show summary in verbose mode
+        if ($this->isVerbose($output)) {
+            $io->success('Backfill completed!');
+            $io->table(
+                ['Metric', 'Count'],
+                [
+                    ['Total items processed', $processedCount],
+                    ['Items with current_price_id set', $backfilledCount],
+                    ['Items without prices (skipped)', $skippedCount],
+                ]
+            );
+        }
 
         return Command::SUCCESS;
     }
