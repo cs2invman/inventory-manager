@@ -169,6 +169,15 @@ class ProcessQueueService
         // Check if all processors are complete
         if ($this->processorRepository->areAllProcessorsComplete($queueItem)) {
             // All processors complete - delete the queue item
+            // Re-fetch entity if detached (due to em->clear() in command)
+            if (!$this->em->contains($queueItem)) {
+                $queueItem = $this->em->find(ProcessQueue::class, $queueItem->getId());
+                if (!$queueItem) {
+                    // Already deleted by another process
+                    return;
+                }
+            }
+
             $this->em->remove($queueItem);
             $this->em->flush();
 

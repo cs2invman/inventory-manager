@@ -318,4 +318,51 @@ class ItemPriceRepository extends ServiceEntityRepository
 
         return $result ? new \DateTimeImmutable($result) : null;
     }
+
+    /**
+     * Find the closest price to a target date within a tolerance window
+     *
+     * @param \App\Entity\Item $item
+     * @param \DateTimeInterface $targetDate
+     * @param int $toleranceHours How many hours before/after to search
+     * @return ItemPrice|null
+     */
+    public function findClosestPriceToDate(
+        \App\Entity\Item $item,
+        \DateTimeInterface $targetDate,
+        int $toleranceHours = 24
+    ): ?ItemPrice {
+        $minDate = (clone $targetDate)->modify(sprintf('-%d hours', $toleranceHours));
+        $maxDate = (clone $targetDate)->modify(sprintf('+%d hours', $toleranceHours));
+
+        // Fetch all prices within the tolerance window
+        $prices = $this->createQueryBuilder('ip')
+            ->where('ip.item = :item')
+            ->andWhere('ip.priceDate BETWEEN :minDate AND :maxDate')
+            ->setParameter('item', $item)
+            ->setParameter('minDate', $minDate)
+            ->setParameter('maxDate', $maxDate)
+            ->orderBy('ip.priceDate', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        if (empty($prices)) {
+            return null;
+        }
+
+        // Find the closest price by calculating the time difference in PHP
+        $closestPrice = null;
+        $smallestDiff = PHP_INT_MAX;
+        $targetTimestamp = $targetDate->getTimestamp();
+
+        foreach ($prices as $price) {
+            $diff = abs($price->getPriceDate()->getTimestamp() - $targetTimestamp);
+            if ($diff < $smallestDiff) {
+                $smallestDiff = $diff;
+                $closestPrice = $price;
+            }
+        }
+
+        return $closestPrice;
+    }
 }

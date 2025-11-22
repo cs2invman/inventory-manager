@@ -37,7 +37,7 @@ class QueueProcessCommand extends Command
                 'l',
                 InputOption::VALUE_REQUIRED,
                 'Maximum number of items to process',
-                100
+                1000
             )
             ->addOption(
                 'type',

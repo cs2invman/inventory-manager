@@ -64,6 +64,15 @@ class ItemPrice
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
     private ?string $priceMedian30d = null;
 
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+    private ?string $trend24h = null;
+
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+    private ?string $trend7d = null;
+
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+    private ?string $trend30d = null;
+
     #[ORM\Column(length: 50)]
     private ?string $source = null;
 
@@ -279,6 +288,39 @@ class ItemPrice
     public function getPriceMedian30dAsFloat(): ?float
     {
         return $this->priceMedian30d !== null ? (float) $this->priceMedian30d : null;
+    }
+
+    public function getTrend24h(): ?string
+    {
+        return $this->trend24h;
+    }
+
+    public function setTrend24h(?string $trend24h): static
+    {
+        $this->trend24h = $trend24h;
+        return $this;
+    }
+
+    public function getTrend7d(): ?string
+    {
+        return $this->trend7d;
+    }
+
+    public function setTrend7d(?string $trend7d): static
+    {
+        $this->trend7d = $trend7d;
+        return $this;
+    }
+
+    public function getTrend30d(): ?string
+    {
+        return $this->trend30d;
+    }
+
+    public function setTrend30d(?string $trend30d): static
+    {
+        $this->trend30d = $trend30d;
+        return $this;
     }
 
     public function getSource(): ?string
